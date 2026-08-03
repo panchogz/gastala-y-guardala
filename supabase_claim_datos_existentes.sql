@@ -2,8 +2,8 @@
 -- Reasigna a tu usuario todos los datos que cargaste antes de que existiera login
 -- (hoy tienen user_id = NULL, por eso las políticas RLS no te los muestran).
 
--- 1) Buscá tu user_id (reemplazá el email si usaste otro):
-select id as mi_user_id from auth.users where email = 'panchgonzalez12@gmail.com';
+-- 1) Buscá tu user_id (reemplazá 'tu-email@ejemplo.com' por el email con el que iniciaste sesión):
+select id as mi_user_id from auth.users where email = 'tu-email@ejemplo.com';
 
 -- 2) Copiá ese uuid y pegalo en el :user_id de abajo, después corré todo el bloque:
 do $$
