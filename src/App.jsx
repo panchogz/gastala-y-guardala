@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "./lib/supabaseClient.js";
 import { processQueue, subscribeQueueCount } from "./lib/offlineQueue.js";
 import { setCachedUserId } from "./lib/auth.js";
+import { requestPersistentStorage } from "./lib/authStorage.js";
 import Login from "./features/auth/Login.jsx";
 import TarjetasView from "./features/tarjetas/TarjetasView.jsx";
 import AhorrosView from "./features/ahorros/AhorrosView.jsx";
@@ -18,6 +19,7 @@ export default function App() {
   const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
+    requestPersistentStorage();
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setCachedUserId(data.session?.user?.id);
