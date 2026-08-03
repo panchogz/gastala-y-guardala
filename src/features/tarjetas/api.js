@@ -1,6 +1,7 @@
 import { supabase } from "../../lib/supabaseClient.js";
 import { currentMonthISO } from "../../lib/helpers.js";
 import { getUserId } from "../../lib/auth.js";
+import { queuedInsert, queuedUpdate, queuedDelete, queuedUpsert } from "../../lib/queuedWrite.js";
 
 // ---------- tarjetas (lista dinámica) ----------
 
@@ -15,24 +16,17 @@ export async function fetchTarjetas() {
 
 export async function insertTarjeta({ nombre, color, orden }) {
   const user_id = await getUserId();
-  const { data, error } = await supabase
-    .from("tarjetas")
-    .insert({ nombre, color, orden, user_id })
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+  return queuedInsert("tarjetas", { nombre, color, orden, user_id });
 }
 
 export async function deleteTarjeta(id) {
   // Borrado explícito de lo asociado primero: funciona haya o no ON DELETE CASCADE
   // configurado en las foreign keys. RLS ya restringe todo esto al usuario dueño.
-  await supabase.from("tarjeta_cuotas").delete().eq("tarjeta_id", id);
-  await supabase.from("tarjeta_dolares").delete().eq("tarjeta_id", id);
-  await supabase.from("tarjeta_config").delete().eq("tarjeta_id", id);
-  await supabase.from("total_mensual").delete().eq("tarjeta_id", id);
-  const { error } = await supabase.from("tarjetas").delete().eq("id", id);
-  if (error) throw error;
+  await queuedDelete("tarjeta_cuotas", "tarjeta_id", id);
+  await queuedDelete("tarjeta_dolares", "tarjeta_id", id);
+  await queuedDelete("tarjeta_config", "tarjeta_id", id);
+  await queuedDelete("total_mensual", "tarjeta_id", id);
+  await queuedDelete("tarjetas", "id", id);
 }
 
 // ---------- config (salario neto + cotización por tarjeta) ----------
@@ -49,13 +43,11 @@ export async function fetchConfig(tarjetaId) {
 
 export async function saveConfig(tarjetaId, { salario_neto, cotizacion }) {
   const user_id = await getUserId();
-  const { error } = await supabase
-    .from("tarjeta_config")
-    .upsert(
-      { tarjeta_id: tarjetaId, user_id, salario_neto, cotizacion },
-      { onConflict: "user_id,tarjeta_id" }
-    );
-  if (error) throw error;
+  await queuedUpsert(
+    "tarjeta_config",
+    { tarjeta_id: tarjetaId, user_id, salario_neto, cotizacion },
+    "user_id,tarjeta_id"
+  );
 }
 
 // ---------- compras en cuotas ----------
@@ -72,23 +64,15 @@ export async function fetchCuotas(tarjetaId) {
 
 export async function insertCuota(tarjetaId, row) {
   const user_id = await getUserId();
-  const { data, error } = await supabase
-    .from("tarjeta_cuotas")
-    .insert({ tarjeta_id: tarjetaId, user_id, ...row })
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+  return queuedInsert("tarjeta_cuotas", { tarjeta_id: tarjetaId, user_id, ...row });
 }
 
 export async function updateCuota(id, patch) {
-  const { error } = await supabase.from("tarjeta_cuotas").update(patch).eq("id", id);
-  if (error) throw error;
+  await queuedUpdate("tarjeta_cuotas", "id", id, patch);
 }
 
 export async function deleteCuota(id) {
-  const { error } = await supabase.from("tarjeta_cuotas").delete().eq("id", id);
-  if (error) throw error;
+  await queuedDelete("tarjeta_cuotas", "id", id);
 }
 
 // ---------- gastos en dólares ----------
@@ -105,23 +89,15 @@ export async function fetchDolares(tarjetaId) {
 
 export async function insertDolar(tarjetaId, row) {
   const user_id = await getUserId();
-  const { data, error } = await supabase
-    .from("tarjeta_dolares")
-    .insert({ tarjeta_id: tarjetaId, user_id, ...row })
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+  return queuedInsert("tarjeta_dolares", { tarjeta_id: tarjetaId, user_id, ...row });
 }
 
 export async function updateDolar(id, patch) {
-  const { error } = await supabase.from("tarjeta_dolares").update(patch).eq("id", id);
-  if (error) throw error;
+  await queuedUpdate("tarjeta_dolares", "id", id, patch);
 }
 
 export async function deleteDolar(id) {
-  const { error } = await supabase.from("tarjeta_dolares").delete().eq("id", id);
-  if (error) throw error;
+  await queuedDelete("tarjeta_dolares", "id", id);
 }
 
 // ---------- total mensual ----------
@@ -137,11 +113,9 @@ export async function fetchMonthly() {
 
 export async function registrarMes(tarjetaId, total) {
   const user_id = await getUserId();
-  const { error } = await supabase
-    .from("total_mensual")
-    .upsert(
-      { mes: currentMonthISO(), tarjeta_id: tarjetaId, user_id, total },
-      { onConflict: "user_id,mes,tarjeta_id" }
-    );
-  if (error) throw error;
+  await queuedUpsert(
+    "total_mensual",
+    { mes: currentMonthISO(), tarjeta_id: tarjetaId, user_id, total },
+    "user_id,mes,tarjeta_id"
+  );
 }

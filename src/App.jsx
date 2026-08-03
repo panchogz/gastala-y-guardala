@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./lib/supabaseClient.js";
+import { processQueue, subscribeQueueCount } from "./lib/offlineQueue.js";
+import { setCachedUserId } from "./lib/auth.js";
 import Login from "./features/auth/Login.jsx";
 import TarjetasView from "./features/tarjetas/TarjetasView.jsx";
 import AhorrosView from "./features/ahorros/AhorrosView.jsx";
@@ -13,16 +15,31 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [tab, setTab] = useState("tarjetas");
   const [viewMode, setViewMode] = useState("auto");
+  const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
+      setCachedUserId(data.session?.user?.id);
       setAuthLoading(false);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
+      setCachedUserId(newSession?.user?.id);
     });
     return () => sub.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribeQueueCount(setPendingCount);
+    // Por si quedaron cambios sin sincronizar de una sesión anterior y ya hay red.
+    processQueue(supabase);
+    const onOnline = () => processQueue(supabase);
+    window.addEventListener("online", onOnline);
+    return () => {
+      unsubscribe();
+      window.removeEventListener("online", onOnline);
+    };
   }, []);
 
   const cycleViewMode = () =>
@@ -75,6 +92,15 @@ export default function App() {
         Conectado a Supabase como <strong>{session.user.email}</strong> — los datos se
         guardan en la base, no en el navegador.
       </p>
+
+      {pendingCount > 0 && (
+        <div className="offline-banner">
+          <span aria-hidden="true">📡</span>
+          Sin conexión — {pendingCount} cambio{pendingCount === 1 ? "" : "s"} guardado
+          {pendingCount === 1 ? "" : "s"} localmente, se sincroniza{pendingCount === 1 ? "" : "n"} solo
+          {pendingCount === 1 ? "" : "s"} cuando vuelva la conexión.
+        </div>
+      )}
 
       <div className="tabs">
         <button

@@ -115,6 +115,11 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
   background: #3A1E1E; border: 1px solid #E85D5D; color: #FFD6D6;
   padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 16px;
 }
+.offline-banner {
+  background: #2B2410; border: 1px solid #E8A855; color: #FFE7BD;
+  padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 16px;
+  display: flex; align-items: center; gap: 8px;
+}
 .loading { color: #8B93A1; font-size: 13px; padding: 20px 0; }
 
 .manage-cards { margin-top: 8px; margin-bottom: 20px; }
