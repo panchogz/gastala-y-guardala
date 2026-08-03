@@ -1,0 +1,147 @@
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root { height: 100%; margin: 0; }
+html, body { overflow-x: hidden; background: #14181D; }
+
+.app-root {
+  background: #14181D;
+  color: #E8E6E1;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  width: 100%;
+  min-height: 100%;
+  padding: 24px;
+  padding-top: calc(24px + env(safe-area-inset-top));
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+}
+h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
+.app-header {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px;
+}
+.view-toggle-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: #1D232B; border: 1px solid #2A313B; color: #8B93A1;
+  padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600;
+  white-space: nowrap;
+}
+.view-toggle-btn:hover { border-color: #5B9BE8; color: #E8E6E1; }
+.app-header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+.login-root { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+.login-box {
+  background: #1D232B; border: 1px solid #2A313B; border-radius: 12px;
+  padding: 32px; max-width: 380px; width: 100%; text-align: center;
+}
+.login-box h1 { font-size: 20px; }
+.login-form { display: flex; flex-direction: column; gap: 12px; margin-top: 18px; }
+.login-turnstile { align-self: center; }
+.login-form input {
+  background: #12161B; border: 1px solid #2A313B; color: #E8E6E1;
+  padding: 10px 12px; border-radius: 8px; font-size: 14px; text-align: center;
+}
+.login-sent {
+  margin-top: 18px; font-size: 14px; color: #E8E6E1;
+  background: #12161B; border: 1px solid #35D0A0; border-radius: 8px; padding: 14px;
+}
+.tabs { display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 1px solid #2A313B; padding-bottom: 0; }
+.tab-btn {
+  background: none; border: none; color: #8B93A1; font-size: 15px; font-weight: 600;
+  padding: 10px 4px; cursor: pointer; border-bottom: 2px solid transparent; margin-right: 20px;
+}
+.tab-btn.active { color: #E8E6E1; border-bottom-color: #35D0A0; }
+.tab-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; min-width: 0; }
+@media (max-width: 1500px) { .grid-2 { grid-template-columns: minmax(0, 1fr); } }
+
+/* Vista forzada manualmente desde el botón del header: tiene prioridad sobre el
+   media query de arriba (mayor especificidad), sin importar el ancho real. */
+.app-root.force-desktop .grid-2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.app-root.force-mobile .grid-2 { grid-template-columns: minmax(0, 1fr); }
+.card-panel, .asset-block {
+  background: #1D232B; border-top: 3px solid #5B9BE8; border-radius: 10px;
+  padding: 18px; margin-bottom: 20px;
+  min-width: 0;
+}
+.card-head { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+.head-inputs { display: flex; gap: 14px; flex-wrap: wrap; }
+.head-inputs label, .cotiz-input {
+  display: flex; flex-direction: column; font-size: 11px; color: #8B93A1; gap: 4px;
+}
+.head-inputs input, .cotiz-input input {
+  background: #12161B; border: 1px solid #2A313B; color: #E8E6E1;
+  padding: 6px 8px; border-radius: 6px; font-size: 13px; width: 120px;
+}
+.stat-row { display: flex; gap: 24px; margin: 10px 0 16px 0; }
+.stat { display: flex; flex-direction: column; }
+.stat-label { font-size: 11px; color: #8B93A1; }
+.stat-value { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.subhead { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #8B93A1; margin: 10px 0 8px 0; font-weight: 700; }
+.tbl-wrap { overflow-x: auto; max-width: 100%; }
+.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl th { text-align: left; color: #8B93A1; font-weight: 600; font-size: 11px; text-transform: uppercase; padding: 6px 6px; border-bottom: 1px solid #2A313B; white-space: nowrap; }
+.tbl td { padding: 5px 6px; border-bottom: 1px solid #21262E; font-variant-numeric: tabular-nums; }
+.cell-input {
+  background: #12161B; border: 1px solid #2A313B; color: #5B9BE8;
+  padding: 4px 6px; border-radius: 5px; width: 100%; min-width: 70px; font-size: 13px;
+  height: 26px; line-height: 1.2; font-family: inherit; -webkit-appearance: none; appearance: none;
+}
+
+/* Los selectores nativos de fecha (iOS/Android) ignoran width:100% e imponen su propio
+   alto/ancho mínimo, lo que los hace más grandes que el resto de los inputs y puede
+   solaparse con la celda vecina en tablas angostas. Se fija un ancho/alto explícitos
+   para que se vean igual que cualquier otro campo de la tabla. */
+.cell-input[type="date"] {
+  width: 130px;
+  min-width: 130px;
+  max-width: 130px;
+  flex: none;
+}
+
+/* Variante compacta para tablas con muchas columnas (ej. compras en cuotas: 9 cols) */
+.tbl-dense { font-size: 12px; }
+.tbl-dense th { padding: 6px 4px; font-size: 10px; }
+.tbl-dense td { padding: 4px 4px; }
+.tbl-dense .cell-input { padding: 3px 4px; min-width: 56px; font-size: 12px; height: 24px; }
+.tbl-dense .cell-input[type="date"] { width: 112px; min-width: 112px; max-width: 112px; }
+.cell-computed { color: #E8E6E1; }
+.tbl-total td { font-weight: 700; border-top: 1px solid #2A313B; border-bottom: none; padding-top: 8px; }
+.btn-del { background: none; border: none; color: #E85D5D; cursor: pointer; font-size: 16px; line-height: 1; }
+.btn-add { background: none; border: 1px dashed #2A313B; color: #8B93A1; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-top: 8px; }
+.btn-add:hover { border-color: #5B9BE8; color: #5B9BE8; }
+.btn-register { display: block; margin-top: 16px; border: none; color: #12161B; font-weight: 700; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+.btn-register:disabled { opacity: 0.6; cursor: not-allowed; }
+.empty { color: #8B93A1; font-size: 13px; }
+.error-banner {
+  background: #3A1E1E; border: 1px solid #E85D5D; color: #FFD6D6;
+  padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 16px;
+}
+.loading { color: #8B93A1; font-size: 13px; padding: 20px 0; }
+
+.manage-cards { margin-top: 8px; margin-bottom: 20px; }
+.manage-cards-panel {
+  background: #1D232B; border: 1px solid #2A313B; border-radius: 10px;
+  padding: 16px; margin-top: 10px;
+}
+.manage-cards-list { list-style: none; margin: 0 0 14px 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.manage-cards-list li { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.manage-cards-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.manage-cards-name { flex: 1; }
+.manage-cards-add { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; border-top: 1px solid #2A313B; padding-top: 14px; }
+.manage-cards-add input[type="text"] {
+  background: #12161B; border: 1px solid #2A313B; color: #E8E6E1;
+  padding: 6px 8px; border-radius: 6px; font-size: 13px; min-width: 180px; flex: 1;
+}
+.color-palette { display: flex; gap: 6px; }
+.color-swatch {
+  width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0;
+}
+.color-swatch.selected { border-color: #E8E6E1; }
+
+.config-categorias {
+  background: #1D232B; border: 1px solid #2A313B; border-radius: 10px;
+  padding: 22px; max-width: 460px;
+}
+.config-categorias-list { display: flex; flex-direction: column; gap: 12px; margin: 18px 0 22px 0; }
+.config-checkbox { display: flex; align-items: center; gap: 10px; font-size: 14px; cursor: pointer; }
+.config-checkbox input[type="checkbox"] { width: 16px; height: 16px; accent-color: #35D0A0; cursor: pointer; }
+.config-categorias-actions { display: flex; gap: 10px; }
