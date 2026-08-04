@@ -40,9 +40,14 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
   padding: 10px 12px; border-radius: 8px; font-size: 14px; text-align: center;
 }
 .login-sent {
-  margin-top: 18px; font-size: 14px; color: #E8E6E1;
+  margin-top: 0; margin-bottom: 4px; font-size: 14px; color: #E8E6E1;
   background: #12161B; border: 1px solid #35D0A0; border-radius: 8px; padding: 14px;
 }
+.login-resend {
+  background: none; border: none; color: #5B9BE8; font-size: 13px;
+  margin-top: 14px; cursor: pointer; text-decoration: underline; padding: 4px;
+}
+.login-resend:hover { color: #8DC0FF; }
 .tabs { display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 1px solid #2A313B; padding-bottom: 0; }
 .tab-btn {
   background: none; border: none; color: #8B93A1; font-size: 15px; font-weight: 600;
