@@ -40,6 +40,10 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,png,svg,ico}"],
+        // Los splash screens de iOS (apple-touch-startup-image) los lee Safari
+        // directo del disco solo al instalar el ícono, nunca en runtime — no
+        // tiene sentido inflar el precache del SW con ~2MB que no se van a usar.
+        globIgnores: ["splash/**"],
         // Fallback SPA para navegación offline, limitado a nuestro propio origen.
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [
