@@ -11,6 +11,7 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
   const [config, setConfig] = useState({ salario_neto: 0, cotizacion: 1200 });
   const [cuotas, setCuotas] = useState([]);
   const [dolares, setDolares] = useState([]);
+  const [recurrentes, setRecurrentes] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -18,15 +19,17 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
       setLoading(true);
       setError(null);
       try {
-        const [cfg, cuotasRows, dolaresRows] = await Promise.all([
+        const [cfg, cuotasRows, dolaresRows, recurrentesRows] = await Promise.all([
           api.fetchConfig(tarjetaId),
           api.fetchCuotas(tarjetaId),
           api.fetchDolares(tarjetaId),
+          api.fetchRecurrentes(tarjetaId),
         ]);
         if (cancelled) return;
         setConfig({ salario_neto: cfg?.salario_neto ?? 0, cotizacion: cfg?.cotizacion ?? 1200 });
         setCuotas(cuotasRows);
         setDolares(dolaresRows);
+        setRecurrentes(recurrentesRows);
       } catch (e) {
         if (!cancelled) setError(e.message);
       } finally {
@@ -60,7 +63,11 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
 
   const totalCuotas = cuotasEnriched.reduce((a, r) => a + r.montoPorCuota, 0);
   const totalDolares = dolarEnriched.reduce((a, r) => a + r.montoARS, 0);
-  const totalAPagar = totalCuotas + totalDolares;
+  const totalRecurrentes = recurrentes.reduce(
+    (a, r) => a + (r.activo ? Number(r.monto) || 0 : 0),
+    0
+  );
+  const totalAPagar = totalCuotas + totalDolares + totalRecurrentes;
   const pctSalario = Number(config.salario_neto) > 0 ? totalAPagar / Number(config.salario_neto) : 0;
 
   async function handleConfigBlur() {
@@ -151,6 +158,55 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
     try {
       await api.deleteDolar(id);
       setDolares((rows) => rows.filter((r) => r.id !== id));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  // ---- recurrentes ----
+  function updateRecurrenteLocal(id, key, val) {
+    setRecurrentes((rows) => rows.map((r) => (r.id === id ? { ...r, [key]: val } : r)));
+  }
+  async function saveRecurrenteRow(row) {
+    try {
+      await api.updateRecurrente(row.id, {
+        concepto: row.concepto,
+        monto: Number(row.monto) || 0,
+        activo: row.activo,
+      });
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+  async function toggleRecurrenteActivo(row) {
+    const activo = !row.activo;
+    updateRecurrenteLocal(row.id, "activo", activo);
+    try {
+      await api.updateRecurrente(row.id, { activo });
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+  async function addRecurrente() {
+    setSaving(true);
+    setError(null);
+    try {
+      const row = await api.insertRecurrente(tarjetaId, {
+        concepto: "",
+        monto: 0,
+        activo: true,
+      });
+      setRecurrentes((rows) => [...rows, row]);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function delRecurrente(id) {
+    try {
+      await api.deleteRecurrente(id);
+      setRecurrentes((rows) => rows.filter((r) => r.id !== id));
     } catch (e) {
       setError(e.message);
     }
@@ -350,6 +406,59 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
       </Table>
       <button className="btn-add" disabled={saving} onClick={addDolar}>
         + gasto en dólares
+      </button>
+
+      <div className="subhead" style={{ marginTop: 18 }}>
+        Gastos recurrentes / Suscripciones
+      </div>
+      <Table
+        columns={[
+          { key: "concepto", label: "Concepto" },
+          { key: "monto", label: "Monto", align: "right" },
+          { key: "activo", label: "Activo", align: "center" },
+        ]}
+        footer={
+          <tr className="tbl-total">
+            <td>TOTALES</td>
+            <td style={{ textAlign: "right" }}>{fmtARS(totalRecurrentes)}</td>
+            <td />
+            <td />
+          </tr>
+        }
+      >
+        {recurrentes.map((r) => (
+          <tr key={r.id}>
+            <Cell
+              editable
+              value={r.concepto || ""}
+              onChange={(v) => updateRecurrenteLocal(r.id, "concepto", v)}
+              onBlur={() => saveRecurrenteRow(r)}
+            />
+            <Cell
+              editable
+              type="number"
+              align="right"
+              value={r.monto}
+              onChange={(v) => updateRecurrenteLocal(r.id, "monto", v)}
+              onBlur={() => saveRecurrenteRow(r)}
+            />
+            <td style={{ textAlign: "center" }}>
+              <input
+                type="checkbox"
+                checked={!!r.activo}
+                onChange={() => toggleRecurrenteActivo(r)}
+              />
+            </td>
+            <td>
+              <button className="btn-del" onClick={() => delRecurrente(r.id)}>
+                ×
+              </button>
+            </td>
+          </tr>
+        ))}
+      </Table>
+      <button className="btn-add" disabled={saving} onClick={addRecurrente}>
+        + agregar suscripción
       </button>
 
       <button

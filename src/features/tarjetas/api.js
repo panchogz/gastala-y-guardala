@@ -24,6 +24,7 @@ export async function deleteTarjeta(id) {
   // configurado en las foreign keys. RLS ya restringe todo esto al usuario dueño.
   await queuedDelete("tarjeta_cuotas", "tarjeta_id", id);
   await queuedDelete("tarjeta_dolares", "tarjeta_id", id);
+  await queuedDelete("tarjeta_recurrentes", "tarjeta_id", id);
   await queuedDelete("tarjeta_config", "tarjeta_id", id);
   await queuedDelete("total_mensual", "tarjeta_id", id);
   await queuedDelete("tarjetas", "id", id);
@@ -98,6 +99,31 @@ export async function updateDolar(id, patch) {
 
 export async function deleteDolar(id) {
   await queuedDelete("tarjeta_dolares", "id", id);
+}
+
+// ---------- gastos recurrentes / suscripciones ----------
+
+export async function fetchRecurrentes(tarjetaId) {
+  const { data, error } = await supabase
+    .from("tarjeta_recurrentes")
+    .select("*")
+    .eq("tarjeta_id", tarjetaId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return data;
+}
+
+export async function insertRecurrente(tarjetaId, row) {
+  const user_id = await getUserId();
+  return queuedInsert("tarjeta_recurrentes", { tarjeta_id: tarjetaId, user_id, ...row });
+}
+
+export async function updateRecurrente(id, patch) {
+  await queuedUpdate("tarjeta_recurrentes", "id", id, patch);
+}
+
+export async function deleteRecurrente(id) {
+  await queuedDelete("tarjeta_recurrentes", "id", id);
 }
 
 // ---------- total mensual ----------
