@@ -4,6 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#14181D" />
+    <style>
+      /* Fondo oscuro inline, aplicado en el primer paint antes de que cargue
+         el CSS externo — evita el destello blanco al reabrir la PWA
+         instalada en iOS, donde reabrir desde el ícono suele implicar un
+         proceso de WKWebView nuevo (parseo de HTML real) aunque no se vea
+         la barra de Safari en modo standalone. */
+      html, body { background: #14181D; }
+    </style>
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
     <title>Gastala y Guardala</title>
