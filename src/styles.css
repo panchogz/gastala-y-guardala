@@ -74,9 +74,17 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
 }
 .head-inputs input, .cotiz-input input {
   background: #12161B; border: 1px solid #2A313B; color: #E8E6E1;
-  padding: 6px 8px; border-radius: 6px; font-size: 13px; width: 120px;
+  padding: 6px 8px; border-radius: 6px; font-size: 13px; width: 120px; max-width: 100%;
 }
-.stat-row { display: flex; gap: 24px; margin: 10px 0 16px 0; }
+.stat-row { display: flex; gap: 24px; margin: 10px 0 16px 0; flex-wrap: wrap; }
+
+/* En pantallas angostas los inputs de cotización con ancho fijo (120px) empujan
+   al botón de al lado fuera del viewport. Se los deja crecer/achicar dentro de
+   la fila, que ya puede wrapear (.stat-row). */
+@media (max-width: 480px) {
+  .cotiz-input { flex: 1 1 130px; min-width: 0; }
+  .cotiz-input input { width: 100%; }
+}
 .stat { display: flex; flex-direction: column; }
 .stat-label { font-size: 11px; color: #8B93A1; }
 .stat-value { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -133,25 +141,21 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
   padding: 16px; margin-top: 10px;
 }
 .manage-cards-list { list-style: none; margin: 0 0 14px 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.manage-cards-list li { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.manage-cards-list li { display: flex; align-items: center; gap: 8px; font-size: 13px; flex-wrap: wrap; }
 .manage-cards-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
 .manage-cards-name { flex: 1; }
+.manage-cards-tipo { font-size: 11px; color: #8B93A1; text-transform: uppercase; letter-spacing: 0.03em; }
 .manage-cards-add { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; border-top: 1px solid #2A313B; padding-top: 14px; }
 .manage-cards-add input[type="text"] {
   background: #12161B; border: 1px solid #2A313B; color: #E8E6E1;
   padding: 6px 8px; border-radius: 6px; font-size: 13px; min-width: 180px; flex: 1;
+}
+.manage-cards-add select {
+  background: #12161B; border: 1px solid #2A313B; color: #E8E6E1;
+  padding: 6px 8px; border-radius: 6px; font-size: 13px;
 }
 .color-palette { display: flex; gap: 6px; }
 .color-swatch {
   width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0;
 }
 .color-swatch.selected { border-color: #E8E6E1; }
-
-.config-categorias {
-  background: #1D232B; border: 1px solid #2A313B; border-radius: 10px;
-  padding: 22px; max-width: 460px;
-}
-.config-categorias-list { display: flex; flex-direction: column; gap: 12px; margin: 18px 0 22px 0; }
-.config-checkbox { display: flex; align-items: center; gap: 10px; font-size: 14px; cursor: pointer; }
-.config-checkbox input[type="checkbox"] { width: 16px; height: 16px; accent-color: #35D0A0; cursor: pointer; }
-.config-categorias-actions { display: flex; gap: 10px; }

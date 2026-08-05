@@ -26,39 +26,44 @@ export async function saveCotizacionUsdt(dolar_usdt) {
   await queuedUpsert("cotizaciones", { user_id, dolar_usdt }, "user_id");
 }
 
-// ---------- configuración de categorías (qué secciones usa cada usuario) ----------
+// ---------- cuentas de ahorro (lista dinámica, una por instrumento concreto) ----------
 
-export async function fetchAhorrosConfig() {
-  const user_id = await getUserId();
+export async function fetchCuentasAhorro() {
   const { data, error } = await supabase
-    .from("ahorros_config")
+    .from("cuentas_ahorro")
     .select("*")
-    .eq("user_id", user_id)
-    .maybeSingle();
+    .order("orden", { ascending: true });
   if (error) throw error;
   return data;
 }
 
-export async function saveAhorrosConfig(patch) {
+export async function insertCuentaAhorro({ tipo, nombre, color, orden }) {
   const user_id = await getUserId();
-  await queuedUpsert("ahorros_config", { user_id, ...patch }, "user_id");
+  return queuedInsert("cuentas_ahorro", { tipo, nombre, color, orden, user_id });
 }
 
-// ---------- helpers genéricos por tabla ----------
+export async function deleteCuentaAhorro(id) {
+  // activos_bolsa/cripto/usdt.cuenta_id tiene ON DELETE CASCADE: borrar la cuenta
+  // se lleva puestos sus activos sin necesidad de borrarlos a mano acá.
+  await queuedDelete("cuentas_ahorro", "id", id);
+}
+
+// ---------- helpers genéricos por tabla de activos (scoped a una cuenta) ----------
 
 function tableApi(table) {
   return {
-    async fetchAll() {
+    async fetchAll(cuentaId) {
       const { data, error } = await supabase
         .from(table)
         .select("*")
+        .eq("cuenta_id", cuentaId)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
-    async insert(row) {
+    async insert(cuentaId, row) {
       const user_id = await getUserId();
-      return queuedInsert(table, { ...row, user_id });
+      return queuedInsert(table, { ...row, cuenta_id: cuentaId, user_id });
     },
     async update(id, patch) {
       await queuedUpdate(table, "id", id, patch);

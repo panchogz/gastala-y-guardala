@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   LineChart,
   Line,
@@ -10,25 +10,36 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import AssetTable from "./AssetTable.jsx";
-import ConfigCategorias from "./ConfigCategorias.jsx";
+import GestionarCuentas from "./GestionarCuentas.jsx";
 import { fmtARS, fmtUSD, fmtPct, mesLabel, mesLabelCorto } from "../../lib/helpers.js";
 import * as api from "./api.js";
+
+function apiForTipo(tipo) {
+  if (tipo === "bolsa") return api.bolsaApi;
+  if (tipo === "cripto") return api.criptoApi;
+  return api.usdtApi;
+}
 
 export default function AhorrosView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [savingConfig, setSavingConfig] = useState(false);
 
-  const [ahorrosConfig, setAhorrosConfig] = useState(null);
-  const [editandoConfig, setEditandoConfig] = useState(false);
+  const [cuentas, setCuentas] = useState([]);
+  const [activosPorCuenta, setActivosPorCuenta] = useState({});
 
   const [cotizacion, setCotizacion] = useState(1200);
   const [cotizacionUsdt, setCotizacionUsdt] = useState(1200);
-  const [cripto, setCripto] = useState([]);
-  const [bolsa, setBolsa] = useState([]);
-  const [usdt, setUsdt] = useState([]);
   const [evolucion, setEvolucion] = useState([]);
+
+  const loadCuentas = useCallback(async () => {
+    const rows = await api.fetchCuentasAhorro();
+    setCuentas(rows);
+    const entries = await Promise.all(
+      rows.map(async (c) => [c.id, await apiForTipo(c.tipo).fetchAll(c.id)])
+    );
+    setActivosPorCuenta(Object.fromEntries(entries));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,22 +47,12 @@ export default function AhorrosView() {
       setLoading(true);
       setError(null);
       try {
-        const [cfg, cot, criptoRows, bolsaRows, usdtRows, evoRows] = await Promise.all([
-          api.fetchAhorrosConfig(),
-          api.fetchCotizacion(),
-          api.criptoApi.fetchAll(),
-          api.bolsaApi.fetchAll(),
-          api.usdtApi.fetchAll(),
-          api.fetchEvolucion(),
-        ]);
+        const [cot, evoRows] = await Promise.all([api.fetchCotizacion(), api.fetchEvolucion()]);
         if (cancelled) return;
-        setAhorrosConfig(cfg);
         setCotizacion(cot?.dolar_ccl_mep ?? 1200);
         setCotizacionUsdt(cot?.dolar_usdt ?? 1200);
-        setCripto(criptoRows);
-        setBolsa(bolsaRows);
-        setUsdt(usdtRows);
         setEvolucion(evoRows);
+        await loadCuentas();
       } catch (e) {
         if (!cancelled) setError(e.message);
       } finally {
@@ -62,20 +63,11 @@ export default function AhorrosView() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadCuentas]);
 
-  async function handleGuardarConfigCategorias(values) {
-    setSavingConfig(true);
-    setError(null);
-    try {
-      await api.saveAhorrosConfig({ ...values, setup_completo: true });
-      setAhorrosConfig((c) => ({ ...c, ...values, setup_completo: true }));
-      setEditandoConfig(false);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setSavingConfig(false);
-    }
+  function setRowsFor(cuentaId) {
+    return (updater) =>
+      setActivosPorCuenta((prev) => ({ ...prev, [cuentaId]: updater(prev[cuentaId] || []) }));
   }
 
   async function handleCotizacionBlur() {
@@ -94,9 +86,14 @@ export default function AhorrosView() {
     }
   }
 
-  const usaCripto = ahorrosConfig?.usa_cripto ?? true;
-  const usaBolsa = ahorrosConfig?.usa_bolsa ?? true;
-  const usaUsdt = ahorrosConfig?.usa_usdt ?? true;
+  const cuentasBolsa = cuentas.filter((c) => c.tipo === "bolsa");
+  const cuentasCripto = cuentas.filter((c) => c.tipo === "cripto");
+  const cuentasUsdt = cuentas.filter((c) => c.tipo === "usdt");
+  const usaBolsa = cuentasBolsa.length > 0;
+  const usaCripto = cuentasCripto.length > 0;
+  const usaUsdt = cuentasUsdt.length > 0;
+
+  const rowsOfTipo = (lista) => lista.flatMap((c) => activosPorCuenta[c.id] || []);
 
   // ---- cripto (usa la cotización USDT, no la CCL/MEP) ----
   const criptoCompute = (r) => {
@@ -110,9 +107,10 @@ export default function AhorrosView() {
     const valorARS = valorActual * (Number(cotizacionUsdt) || 0);
     return { costoTotal, valorActual, pl, plPct, valorARS };
   };
-  const criptoTotalUSD = usaCripto
-    ? cripto.reduce((a, r) => a + criptoCompute(r).valorActual, 0)
-    : 0;
+  const criptoTotalUSD = rowsOfTipo(cuentasCripto).reduce(
+    (a, r) => a + criptoCompute(r).valorActual,
+    0
+  );
 
   // ---- bolsa ----
   const bolsaCompute = (r) => {
@@ -126,9 +124,10 @@ export default function AhorrosView() {
     const valorUSD = cotizacion ? valorActual / Number(cotizacion) : 0;
     return { costoTotal, valorActual, pl, plPct, valorUSD };
   };
-  const bolsaTotalARS = usaBolsa
-    ? bolsa.reduce((a, r) => a + bolsaCompute(r).valorActual, 0)
-    : 0;
+  const bolsaTotalARS = rowsOfTipo(cuentasBolsa).reduce(
+    (a, r) => a + bolsaCompute(r).valorActual,
+    0
+  );
 
   // ---- usdt (usa la cotización USDT, no la CCL/MEP) ----
   const usdtCompute = (r) => {
@@ -138,9 +137,10 @@ export default function AhorrosView() {
     const valorARS = valorActual * (Number(cotizacionUsdt) || 0);
     return { rendimiento, valorARS };
   };
-  const usdtTotalUSD = usaUsdt
-    ? usdt.reduce((a, r) => a + (Number(r.valor_actual_usd) || 0), 0)
-    : 0;
+  const usdtTotalUSD = rowsOfTipo(cuentasUsdt).reduce(
+    (a, r) => a + (Number(r.valor_actual_usd) || 0),
+    0
+  );
 
   const resumen = useMemo(() => {
     const criptoUSD = criptoTotalUSD;
@@ -198,22 +198,6 @@ export default function AhorrosView() {
     return <div className="loading">Cargando…</div>;
   }
 
-  if (!ahorrosConfig?.setup_completo || editandoConfig) {
-    return (
-      <ConfigCategorias
-        initial={ahorrosConfig}
-        onSave={handleGuardarConfigCategorias}
-        onCancel={ahorrosConfig?.setup_completo ? () => setEditandoConfig(false) : null}
-        saving={savingConfig}
-        title={
-          ahorrosConfig?.setup_completo
-            ? "Editar configuración de categorías"
-            : "Antes de empezar: ¿qué categorías de ahorro usás?"
-        }
-      />
-    );
-  }
-
   return (
     <div>
       {error && <div className="error-banner">{error}</div>}
@@ -237,94 +221,115 @@ export default function AhorrosView() {
             onBlur={handleCotizacionUsdtBlur}
           />
         </label>
-        <button className="btn-add" onClick={() => setEditandoConfig(true)}>
-          Editar configuración de categorías
-        </button>
       </div>
 
-      {usaBolsa && (
-        <AssetTable
-          title="Bolsa (CEDEARs / ONs)"
-          accent="#5B9BE8"
-          rows={bolsa}
-          setRows={setBolsa}
-          fields={["ticker", "cantidad", "precio_compra_ars", "precio_actual_ars"]}
-          onAdd={() =>
-            api.bolsaApi.insert({ ticker: "", cantidad: 0, precio_compra_ars: 0, precio_actual_ars: 0 })
-          }
-          onUpdate={(id, patch) => api.bolsaApi.update(id, patch)}
-          onDelete={(id) => api.bolsaApi.remove(id)}
-          columns={[
-            { key: "ticker", label: "Ticker", editable: true },
-            { key: "cantidad", label: "Cantidad", editable: true, type: "number", align: "right" },
-            { key: "precio_compra_ars", label: "Precio compra (ARS)", editable: true, type: "number", align: "right" },
-            { key: "precio_actual_ars", label: "Precio actual (ARS)", editable: true, type: "number", align: "right" },
-            { key: "valorActual", label: "Valor actual (ARS)", align: "right", format: fmtARS },
-            { key: "pl", label: "P&L", align: "right", format: (v) => (v === null ? "—" : fmtARS(v)) },
-            { key: "plPct", label: "P&L %", align: "right", format: (v) => (v === null ? "—" : fmtPct(v)) },
-            { key: "valorUSD", label: "Valor (USD)", align: "right", format: fmtUSD },
-          ]}
-          computeRow={bolsaCompute}
-          totalFn={(rows) => ({
-            valorActual: rows.reduce((a, r) => a + r.valorActual, 0),
-            valorUSD: rows.reduce((a, r) => a + r.valorUSD, 0),
-          })}
-        />
-      )}
+      <GestionarCuentas cuentas={cuentas} onChange={loadCuentas} />
 
-      {usaCripto && (
-        <AssetTable
-          title="Criptomonedas"
-          accent="#35D0A0"
-          rows={cripto}
-          setRows={setCripto}
-          fields={["activo", "cantidad", "precio_compra_usd", "precio_actual_usd"]}
-          onAdd={() =>
-            api.criptoApi.insert({ activo: "", cantidad: 0, precio_compra_usd: 0, precio_actual_usd: 0 })
-          }
-          onUpdate={(id, patch) => api.criptoApi.update(id, patch)}
-          onDelete={(id) => api.criptoApi.remove(id)}
-          columns={[
-            { key: "activo", label: "Activo", editable: true },
-            { key: "cantidad", label: "Cantidad", editable: true, type: "number", align: "right" },
-            { key: "precio_compra_usd", label: "Precio compra (USD)", editable: true, type: "number", align: "right" },
-            { key: "precio_actual_usd", label: "Precio actual (USD)", editable: true, type: "number", align: "right" },
-            { key: "valorActual", label: "Valor actual (USD)", align: "right", format: fmtUSD },
-            { key: "pl", label: "P&L", align: "right", format: (v) => (v === null ? "—" : fmtUSD(v)) },
-            { key: "plPct", label: "P&L %", align: "right", format: (v) => (v === null ? "—" : fmtPct(v)) },
-            { key: "valorARS", label: "Valor (ARS)", align: "right", format: fmtARS },
-          ]}
-          computeRow={criptoCompute}
-          totalFn={(rows) => ({
-            valorActual: rows.reduce((a, r) => a + r.valorActual, 0),
-            valorARS: rows.reduce((a, r) => a + r.valorARS, 0),
-          })}
-        />
-      )}
+      {cuentas.length === 0 ? (
+        <p className="empty">
+          Todavía no agregaste ninguna cuenta de ahorro. Usá "Gestionar cuentas de ahorro" de
+          arriba para crear la primera.
+        </p>
+      ) : (
+        <>
+          {cuentasBolsa.map((c) => (
+            <AssetTable
+              key={c.id}
+              title={c.nombre}
+              accent={c.color}
+              rows={activosPorCuenta[c.id] || []}
+              setRows={setRowsFor(c.id)}
+              fields={["ticker", "cantidad", "precio_compra_ars", "precio_actual_ars"]}
+              onAdd={() =>
+                api.bolsaApi.insert(c.id, {
+                  ticker: "",
+                  cantidad: 0,
+                  precio_compra_ars: 0,
+                  precio_actual_ars: 0,
+                })
+              }
+              onUpdate={(id, patch) => api.bolsaApi.update(id, patch)}
+              onDelete={(id) => api.bolsaApi.remove(id)}
+              columns={[
+                { key: "ticker", label: "Ticker", editable: true },
+                { key: "cantidad", label: "Cantidad", editable: true, type: "number", align: "right" },
+                { key: "precio_compra_ars", label: "Precio compra (ARS)", editable: true, type: "number", align: "right" },
+                { key: "precio_actual_ars", label: "Precio actual (ARS)", editable: true, type: "number", align: "right" },
+                { key: "valorActual", label: "Valor actual (ARS)", align: "right", format: fmtARS },
+                { key: "pl", label: "P&L", align: "right", format: (v) => (v === null ? "—" : fmtARS(v)) },
+                { key: "plPct", label: "P&L %", align: "right", format: (v) => (v === null ? "—" : fmtPct(v)) },
+                { key: "valorUSD", label: "Valor (USD)", align: "right", format: fmtUSD },
+              ]}
+              computeRow={bolsaCompute}
+              totalFn={(rows) => ({
+                valorActual: rows.reduce((a, r) => a + r.valorActual, 0),
+                valorUSD: rows.reduce((a, r) => a + r.valorUSD, 0),
+              })}
+            />
+          ))}
 
-      {usaUsdt && (
-        <AssetTable
-          title="Dólares cripto (USDT / stablecoins)"
-          accent="#E8A855"
-          rows={usdt}
-          setRows={setUsdt}
-          fields={["activo", "costo_total_usd", "valor_actual_usd"]}
-          onAdd={() => api.usdtApi.insert({ activo: "", costo_total_usd: 0, valor_actual_usd: 0 })}
-          onUpdate={(id, patch) => api.usdtApi.update(id, patch)}
-          onDelete={(id) => api.usdtApi.remove(id)}
-          columns={[
-            { key: "activo", label: "Activo / plataforma", editable: true },
-            { key: "costo_total_usd", label: "Costo total (USD)", editable: true, type: "number", align: "right" },
-            { key: "valor_actual_usd", label: "Valor actual (USD)", editable: true, type: "number", align: "right" },
-            { key: "rendimiento", label: "Rendimiento", align: "right", format: (v) => (v === null ? "—" : fmtUSD(v)) },
-            { key: "valorARS", label: "Valor (ARS)", align: "right", format: fmtARS },
-          ]}
-          computeRow={usdtCompute}
-          totalFn={(rows) => ({
-            valorActual: rows.reduce((a, r) => a + (Number(r.valor_actual_usd) || 0), 0),
-            valorARS: rows.reduce((a, r) => a + r.valorARS, 0),
-          })}
-        />
+          {cuentasCripto.map((c) => (
+            <AssetTable
+              key={c.id}
+              title={c.nombre}
+              accent={c.color}
+              rows={activosPorCuenta[c.id] || []}
+              setRows={setRowsFor(c.id)}
+              fields={["activo", "cantidad", "precio_compra_usd", "precio_actual_usd"]}
+              onAdd={() =>
+                api.criptoApi.insert(c.id, {
+                  activo: "",
+                  cantidad: 0,
+                  precio_compra_usd: 0,
+                  precio_actual_usd: 0,
+                })
+              }
+              onUpdate={(id, patch) => api.criptoApi.update(id, patch)}
+              onDelete={(id) => api.criptoApi.remove(id)}
+              columns={[
+                { key: "activo", label: "Activo", editable: true },
+                { key: "cantidad", label: "Cantidad", editable: true, type: "number", align: "right" },
+                { key: "precio_compra_usd", label: "Precio compra (USD)", editable: true, type: "number", align: "right" },
+                { key: "precio_actual_usd", label: "Precio actual (USD)", editable: true, type: "number", align: "right" },
+                { key: "valorActual", label: "Valor actual (USD)", align: "right", format: fmtUSD },
+                { key: "pl", label: "P&L", align: "right", format: (v) => (v === null ? "—" : fmtUSD(v)) },
+                { key: "plPct", label: "P&L %", align: "right", format: (v) => (v === null ? "—" : fmtPct(v)) },
+                { key: "valorARS", label: "Valor (ARS)", align: "right", format: fmtARS },
+              ]}
+              computeRow={criptoCompute}
+              totalFn={(rows) => ({
+                valorActual: rows.reduce((a, r) => a + r.valorActual, 0),
+                valorARS: rows.reduce((a, r) => a + r.valorARS, 0),
+              })}
+            />
+          ))}
+
+          {cuentasUsdt.map((c) => (
+            <AssetTable
+              key={c.id}
+              title={c.nombre}
+              accent={c.color}
+              rows={activosPorCuenta[c.id] || []}
+              setRows={setRowsFor(c.id)}
+              fields={["activo", "costo_total_usd", "valor_actual_usd"]}
+              onAdd={() => api.usdtApi.insert(c.id, { activo: "", costo_total_usd: 0, valor_actual_usd: 0 })}
+              onUpdate={(id, patch) => api.usdtApi.update(id, patch)}
+              onDelete={(id) => api.usdtApi.remove(id)}
+              columns={[
+                { key: "activo", label: "Activo / plataforma", editable: true },
+                { key: "costo_total_usd", label: "Costo total (USD)", editable: true, type: "number", align: "right" },
+                { key: "valor_actual_usd", label: "Valor actual (USD)", editable: true, type: "number", align: "right" },
+                { key: "rendimiento", label: "Rendimiento", align: "right", format: (v) => (v === null ? "—" : fmtUSD(v)) },
+                { key: "valorARS", label: "Valor (ARS)", align: "right", format: fmtARS },
+              ]}
+              computeRow={usdtCompute}
+              totalFn={(rows) => ({
+                valorActual: rows.reduce((a, r) => a + (Number(r.valor_actual_usd) || 0), 0),
+                valorARS: rows.reduce((a, r) => a + r.valorARS, 0),
+              })}
+            />
+          ))}
+        </>
       )}
 
       {resumenRows.length > 0 && (
