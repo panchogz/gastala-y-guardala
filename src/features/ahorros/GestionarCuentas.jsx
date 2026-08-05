@@ -3,13 +3,13 @@ import * as api from "./api.js";
 
 const PALETTE = ["#5B9BE8", "#E8A855", "#35D0A0", "#E85D5D", "#C77DFF", "#4DD0E1"];
 
-const TIPOS = [
+export const TIPOS = [
   { value: "bolsa", label: "Bolsa" },
   { value: "cripto", label: "Cripto" },
   { value: "usdt", label: "USD / Stable" },
 ];
 
-function tipoLabel(tipo) {
+export function tipoLabel(tipo) {
   return TIPOS.find((t) => t.value === tipo)?.label || tipo;
 }
 

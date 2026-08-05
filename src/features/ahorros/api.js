@@ -78,31 +78,34 @@ export const criptoApi = tableApi("activos_cripto");
 export const bolsaApi = tableApi("activos_bolsa");
 export const usdtApi = tableApi("activos_usdt");
 
-// ---------- evolución mensual ----------
+// ---------- evolución mensual (una fila por cuenta, no por tipo) ----------
 
-export async function fetchEvolucion() {
+export async function fetchEvolucionCuentas() {
   const { data, error } = await supabase
-    .from("evolucion_mensual")
+    .from("evolucion_cuenta")
     .select("*")
     .order("mes", { ascending: true });
   if (error) throw error;
   return data;
 }
 
-export async function guardarSnapshot(totales) {
+export async function guardarSnapshotCuentas(cuentaTotales) {
+  // cuentaTotales: [{ cuenta_id, valor_usd, valor_ars }, ...] — una entrada por
+  // cada cuenta activa del usuario. Se borra la foto vieja del mes (si la hay) y
+  // se inserta de cero: más simple que un upsert compuesto y da el mismo resultado
+  // porque el set de cuentas puede cambiar de una foto a la otra.
   const user_id = await getUserId();
-  await queuedUpsert(
-    "evolucion_mensual",
-    {
-      mes: currentMonthISO(),
-      user_id,
-      cripto_usd: totales.criptoUSD,
-      bolsa_usd: totales.bolsaUSD,
-      dolares_usd: totales.dolaresUSD,
-      cripto_ars: totales.criptoARS,
-      bolsa_ars: totales.bolsaARS,
-      dolares_ars: totales.dolaresARS,
-    },
-    "user_id,mes"
+  const mes = currentMonthISO();
+  await queuedDelete("evolucion_cuenta", "mes", mes);
+  await Promise.all(
+    cuentaTotales.map((c) =>
+      queuedInsert("evolucion_cuenta", {
+        user_id,
+        mes,
+        cuenta_id: c.cuenta_id,
+        valor_usd: c.valor_usd,
+        valor_ars: c.valor_ars,
+      })
+    )
   );
 }

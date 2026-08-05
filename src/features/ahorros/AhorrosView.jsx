@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import {
   LineChart,
   Line,
@@ -10,7 +10,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import AssetTable from "./AssetTable.jsx";
-import GestionarCuentas from "./GestionarCuentas.jsx";
+import GestionarCuentas, { tipoLabel } from "./GestionarCuentas.jsx";
 import { fmtARS, fmtUSD, fmtPct, mesLabel, mesLabelCorto } from "../../lib/helpers.js";
 import * as api from "./api.js";
 
@@ -30,7 +30,7 @@ export default function AhorrosView() {
 
   const [cotizacion, setCotizacion] = useState(1200);
   const [cotizacionUsdt, setCotizacionUsdt] = useState(1200);
-  const [evolucion, setEvolucion] = useState([]);
+  const [evolucionCuenta, setEvolucionCuenta] = useState([]);
 
   const loadCuentas = useCallback(async () => {
     const rows = await api.fetchCuentasAhorro();
@@ -47,11 +47,11 @@ export default function AhorrosView() {
       setLoading(true);
       setError(null);
       try {
-        const [cot, evoRows] = await Promise.all([api.fetchCotizacion(), api.fetchEvolucion()]);
+        const [cot, evoRows] = await Promise.all([api.fetchCotizacion(), api.fetchEvolucionCuentas()]);
         if (cancelled) return;
         setCotizacion(cot?.dolar_ccl_mep ?? 1200);
         setCotizacionUsdt(cot?.dolar_usdt ?? 1200);
-        setEvolucion(evoRows);
+        setEvolucionCuenta(evoRows);
         await loadCuentas();
       } catch (e) {
         if (!cancelled) setError(e.message);
@@ -162,19 +162,41 @@ export default function AhorrosView() {
     };
   }, [criptoTotalUSD, bolsaTotalARS, usdtTotalUSD, cotizacion, cotizacionUsdt]);
 
-  const resumenRows = [
-    usaBolsa && ["Bolsa", resumen.bolsaUSD, resumen.bolsaARS],
-    usaCripto && ["Criptomonedas", resumen.criptoUSD, resumen.criptoARS],
-    usaUsdt && ["Dólares cripto", resumen.dolaresUSD, resumen.dolaresARS],
-  ].filter(Boolean);
+  // ---- totales por cuenta individual (para el resumen y el snapshot) ----
+  function totalesDeCuenta(c) {
+    const rows = activosPorCuenta[c.id] || [];
+    if (c.tipo === "bolsa") {
+      const ars = rows.reduce((a, r) => a + bolsaCompute(r).valorActual, 0);
+      const usd = cotizacion ? ars / Number(cotizacion) : 0;
+      return { usd, ars };
+    }
+    if (c.tipo === "cripto") {
+      const usd = rows.reduce((a, r) => a + criptoCompute(r).valorActual, 0);
+      const ars = usd * (Number(cotizacionUsdt) || 0);
+      return { usd, ars };
+    }
+    const usd = rows.reduce((a, r) => a + (Number(r.valor_actual_usd) || 0), 0);
+    const ars = usd * (Number(cotizacionUsdt) || 0);
+    return { usd, ars };
+  }
+
+  const gruposResumen = [
+    { tipo: "bolsa", cuentas: cuentasBolsa },
+    { tipo: "cripto", cuentas: cuentasCripto },
+    { tipo: "usdt", cuentas: cuentasUsdt },
+  ].filter((g) => g.cuentas.length > 0);
 
   async function handleGuardarSnapshot() {
     setSaving(true);
     setError(null);
     try {
-      await api.guardarSnapshot(resumen);
-      const evoRows = await api.fetchEvolucion();
-      setEvolucion(evoRows);
+      const cuentaTotales = cuentas.map((c) => {
+        const t = totalesDeCuenta(c);
+        return { cuenta_id: c.id, valor_usd: t.usd, valor_ars: t.ars };
+      });
+      await api.guardarSnapshotCuentas(cuentaTotales);
+      const rows = await api.fetchEvolucionCuentas();
+      setEvolucionCuenta(rows);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -182,16 +204,21 @@ export default function AhorrosView() {
     }
   }
 
-  const chartData = evolucion.map((m) => {
-    const criptoUSD = Number(m.cripto_usd) || 0;
-    const bolsaUSD = Number(m.bolsa_usd) || 0;
-    const dolaresUSD = Number(m.dolares_usd) || 0;
-    return {
-      mes: mesLabel(m.mes.slice(0, 7)),
-      ...(usaBolsa ? { Bolsa: bolsaUSD } : {}),
-      ...(usaCripto ? { Cripto: criptoUSD } : {}),
-      ...(usaUsdt ? { "Dólares cripto": dolaresUSD } : {}),
-    };
+  // ---- evolución: una serie/columna por cada cuenta presente en los datos ----
+  const mesesEvolucion = [...new Set(evolucionCuenta.map((r) => r.mes))];
+  const cuentaIdsEnEvolucion = [...new Set(evolucionCuenta.map((r) => r.cuenta_id))];
+  const cuentasEnEvolucion = cuentaIdsEnEvolucion
+    .map((id) => cuentas.find((c) => c.id === id))
+    .filter(Boolean)
+    .sort((a, b) => (Number(a.orden) || 0) - (Number(b.orden) || 0));
+
+  const chartData = mesesEvolucion.map((mes) => {
+    const obj = { mes: mesLabel(mes.slice(0, 7)) };
+    for (const c of cuentasEnEvolucion) {
+      const row = evolucionCuenta.find((r) => r.mes === mes && r.cuenta_id === c.id);
+      if (row) obj[c.id] = Number(row.valor_usd) || 0;
+    }
+    return obj;
   });
 
   if (loading) {
@@ -332,7 +359,7 @@ export default function AhorrosView() {
         </>
       )}
 
-      {resumenRows.length > 0 && (
+      {gruposResumen.length > 0 && (
         <>
           <div className="subhead" style={{ marginTop: 28 }}>
             Resumen general de ahorros
@@ -341,27 +368,51 @@ export default function AhorrosView() {
             <table className="tbl">
               <thead>
                 <tr>
-                  <th>Categoría</th>
+                  <th>Cuenta</th>
+                  <th>Tipo</th>
                   <th style={{ textAlign: "right" }}>USD</th>
                   <th style={{ textAlign: "right" }}>ARS</th>
                   <th style={{ textAlign: "right" }}>% del total</th>
                 </tr>
               </thead>
               <tbody>
-                {resumenRows.map(([label, usd, ars]) => (
-                  <tr key={label}>
-                    <td>{label}</td>
-                    <td style={{ textAlign: "right" }}>{fmtUSD(usd)}</td>
-                    <td style={{ textAlign: "right" }}>{fmtARS(ars)}</td>
-                    <td style={{ textAlign: "right" }}>
-                      {fmtPct(resumen.totalUSD ? usd / resumen.totalUSD : 0)}
-                    </td>
-                  </tr>
-                ))}
+                {gruposResumen.map((g) => {
+                  const subtotalUSD = g.cuentas.reduce((a, c) => a + totalesDeCuenta(c).usd, 0);
+                  const subtotalARS = g.cuentas.reduce((a, c) => a + totalesDeCuenta(c).ars, 0);
+                  return (
+                    <Fragment key={g.tipo}>
+                      {g.cuentas.map((c) => {
+                        const t = totalesDeCuenta(c);
+                        return (
+                          <tr key={c.id}>
+                            <td>
+                              <span className="manage-cards-dot" style={{ background: c.color, marginRight: 8 }} />
+                              {c.nombre}
+                            </td>
+                            <td>{tipoLabel(c.tipo)}</td>
+                            <td style={{ textAlign: "right" }}>{fmtUSD(t.usd)}</td>
+                            <td style={{ textAlign: "right" }}>{fmtARS(t.ars)}</td>
+                            <td style={{ textAlign: "right" }}>
+                              {fmtPct(resumen.totalUSD ? t.usd / resumen.totalUSD : 0)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      <tr className="tbl-subtotal">
+                        <td colSpan={2}>Subtotal {tipoLabel(g.tipo)}</td>
+                        <td style={{ textAlign: "right" }}>{fmtUSD(subtotalUSD)}</td>
+                        <td style={{ textAlign: "right" }}>{fmtARS(subtotalARS)}</td>
+                        <td style={{ textAlign: "right" }}>
+                          {fmtPct(resumen.totalUSD ? subtotalUSD / resumen.totalUSD : 0)}
+                        </td>
+                      </tr>
+                    </Fragment>
+                  );
+                })}
               </tbody>
               <tfoot>
                 <tr className="tbl-total">
-                  <td>TOTAL</td>
+                  <td colSpan={2}>TOTAL</td>
                   <td style={{ textAlign: "right" }}>{fmtUSD(resumen.totalUSD)}</td>
                   <td style={{ textAlign: "right" }}>{fmtARS(resumen.totalARS)}</td>
                   <td style={{ textAlign: "right" }}>100%</td>
@@ -382,7 +433,7 @@ export default function AhorrosView() {
           <div className="subhead" style={{ marginTop: 28 }}>
             Evolución mensual de ahorros (USD)
           </div>
-          {evolucion.length === 0 ? (
+          {evolucionCuenta.length === 0 ? (
             <p className="empty">
               Todavía no guardaste ninguna foto mensual. Usá el botón "Guardar foto del mes actual" de arriba.
             </p>
@@ -404,21 +455,18 @@ export default function AhorrosView() {
                       formatter={(v) => fmtUSD(v)}
                     />
                     <Legend wrapperStyle={{ left: 64, right: 64, width: "auto" }} />
-                    {usaBolsa && (
-                      <Line type="monotone" dataKey="Bolsa" stroke="#5B9BE8" strokeWidth={2} dot={{ r: 3 }} />
-                    )}
-                    {usaCripto && (
-                      <Line type="monotone" dataKey="Cripto" stroke="#35D0A0" strokeWidth={2} dot={{ r: 3 }} />
-                    )}
-                    {usaUsdt && (
+                    {cuentasEnEvolucion.map((c) => (
                       <Line
+                        key={c.id}
                         type="monotone"
-                        dataKey="Dólares cripto"
-                        stroke="#E8A855"
+                        dataKey={c.id}
+                        name={c.nombre}
+                        stroke={c.color}
                         strokeWidth={2}
                         dot={{ r: 3 }}
+                        connectNulls
                       />
-                    )}
+                    ))}
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -428,28 +476,33 @@ export default function AhorrosView() {
                   <thead>
                     <tr>
                       <th>Mes</th>
-                      {usaBolsa && <th style={{ textAlign: "right" }}>Bolsa</th>}
-                      {usaCripto && <th style={{ textAlign: "right" }}>Cripto</th>}
-                      {usaUsdt && <th style={{ textAlign: "right" }}>Dólares</th>}
+                      {cuentasEnEvolucion.map((c) => (
+                        <th key={c.id} style={{ textAlign: "right" }}>
+                          {c.nombre}
+                        </th>
+                      ))}
                       <th style={{ textAlign: "right" }}>Total USD</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {evolucion.map((m) => (
-                      <tr key={m.id}>
-                        <td>{mesLabelCorto(m.mes.slice(0, 7))}</td>
-                        {usaBolsa && <td style={{ textAlign: "right" }}>{fmtUSD(m.bolsa_usd)}</td>}
-                        {usaCripto && <td style={{ textAlign: "right" }}>{fmtUSD(m.cripto_usd)}</td>}
-                        {usaUsdt && <td style={{ textAlign: "right" }}>{fmtUSD(m.dolares_usd)}</td>}
-                        <td style={{ textAlign: "right", fontWeight: 600 }}>
-                          {fmtUSD(
-                            (usaCripto ? Number(m.cripto_usd) || 0 : 0) +
-                              (usaBolsa ? Number(m.bolsa_usd) || 0 : 0) +
-                              (usaUsdt ? Number(m.dolares_usd) || 0 : 0)
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                    {mesesEvolucion.map((mes) => {
+                      const rowsDelMes = evolucionCuenta.filter((r) => r.mes === mes);
+                      const total = rowsDelMes.reduce((a, r) => a + (Number(r.valor_usd) || 0), 0);
+                      return (
+                        <tr key={mes}>
+                          <td>{mesLabelCorto(mes.slice(0, 7))}</td>
+                          {cuentasEnEvolucion.map((c) => {
+                            const r = rowsDelMes.find((r) => r.cuenta_id === c.id);
+                            return (
+                              <td key={c.id} style={{ textAlign: "right" }}>
+                                {r ? fmtUSD(r.valor_usd) : "—"}
+                              </td>
+                            );
+                          })}
+                          <td style={{ textAlign: "right", fontWeight: 600 }}>{fmtUSD(total)}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
