@@ -74,7 +74,10 @@ export default function App() {
   return (
     <div className={rootClass}>
       <div className="app-header">
-        <h1>Gastala y Guardala</h1>
+        <h1>
+          <span style={{ color: "#E8A855" }}>₲</span>astala y{" "}
+          <span style={{ color: "#35D0A0" }}>₲</span>uardala
+        </h1>
         <div className="app-header-actions">
           <button
             className="view-toggle-btn"
