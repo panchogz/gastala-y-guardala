@@ -73,8 +73,8 @@ export default function Login() {
     <div className="app-root login-root">
       <div className="login-box">
         <h1>
-          <span style={{ color: "#E8A855" }}>₲</span>astala y{" "}
-          <span style={{ color: "#35D0A0" }}>₲</span>uardala
+          <span className="brand-g brand-g-amber">₲</span>astala y{" "}
+          <span className="brand-g brand-g-teal">₲</span>uardala
         </h1>
 
         {step === "email" ? (

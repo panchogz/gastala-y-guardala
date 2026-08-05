@@ -75,8 +75,8 @@ export default function App() {
     <div className={rootClass}>
       <div className="app-header">
         <h1>
-          <span style={{ color: "#E8A855" }}>₲</span>astala y{" "}
-          <span style={{ color: "#35D0A0" }}>₲</span>uardala
+          <span className="brand-g brand-g-amber">₲</span>astala y{" "}
+          <span className="brand-g brand-g-teal">₲</span>uardala
         </h1>
         <div className="app-header-actions">
           <button

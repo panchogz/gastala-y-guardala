@@ -14,6 +14,20 @@ html, body { overflow-x: hidden; background: #14181D; }
   padding-bottom: calc(24px + env(safe-area-inset-bottom));
 }
 h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
+
+/* El signo guaraní ₲ (U+20B2) del título, con degradé de color pero en la
+   misma tipografía que el resto del h1 (se probó primero con una fuente
+   distinta — Poppins vía woff2 y después Arial Black — pero se volvió a la
+   fuente normal, solo queda el degradé). */
+.brand-g {
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+.brand-g-amber { background-image: linear-gradient(180deg, #F5C687 0%, #E8A855 50%, #B8792F 100%); }
+.brand-g-teal { background-image: linear-gradient(180deg, #7EEBC4 0%, #35D0A0 50%, #1F8C6B 100%); }
 .app-header {
   display: flex; align-items: center; justify-content: space-between;
   flex-wrap: wrap; gap: 12px;
