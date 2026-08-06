@@ -174,3 +174,37 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
   width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0;
 }
 .color-swatch.selected { border-color: #E8E6E1; }
+
+/* Densidad mobile: mismo layout, todo más compacto (como si se hiciera zoom
+   out manualmente) pero a zoom 100% real — no toca el viewport ni initial-scale.
+   Los inputs editables de tabla (.cell-input) quedan afuera a propósito: ya
+   estaban en 26px/24px de alto, por debajo del mínimo táctil recomendado
+   (~36-40px), así que en mobile no se los achica más para no empeorar eso. */
+@media (max-width: 640px) {
+  .tabs { margin-bottom: 16px; }
+  .tab-btn { font-size: 13px; padding: 7px 4px; margin-right: 14px; }
+
+  .card-panel, .asset-block { padding: 14px; margin-bottom: 14px; }
+  .card-head { margin-bottom: 8px; }
+  .head-inputs { gap: 10px; }
+  .head-inputs label, .cotiz-input { font-size: 10px; }
+  .head-inputs input, .cotiz-input input { padding: 5px 6px; font-size: 12px; }
+
+  .stat-row { gap: 16px; margin: 8px 0 12px 0; }
+  .stat-label { font-size: 10px; }
+  .stat-value { font-size: 17px; }
+
+  .subhead { font-size: 10px; margin: 6px 0 5px 0; }
+
+  .tbl, .tbl td { font-size: 11px; }
+  .tbl th { font-size: 10px; padding: 4px 5px; }
+  .tbl td { padding: 4px 5px; }
+  .tbl-dense { font-size: 10px; }
+  .tbl-dense th { padding: 4px 3px; }
+  .tbl-dense td { padding: 3px 3px; }
+
+  .btn-add { padding: 5px 10px; font-size: 11px; margin-top: 6px; }
+  .btn-register { padding: 8px 12px; font-size: 12px; margin-top: 10px; }
+
+  .manage-cards-panel { padding: 12px; margin-top: 8px; }
+}
