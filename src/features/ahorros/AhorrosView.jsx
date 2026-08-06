@@ -20,6 +20,8 @@ function apiForTipo(tipo) {
   return api.usdtApi;
 }
 
+const TIPO_ACCENT = { bolsa: "#5B9BE8", cripto: "#35D0A0", usdt: "#E8A855" };
+
 export default function AhorrosView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -178,6 +180,29 @@ export default function AhorrosView() {
     const usd = rows.reduce((a, r) => a + (Number(r.valor_actual_usd) || 0), 0);
     const ars = usd * (Number(cotizacionUsdt) || 0);
     return { usd, ars };
+  }
+
+  // ---- activos individuales de una cuenta, normalizados a {label, usd, ars}
+  // (cada tipo guarda el nombre del activo en un campo distinto y calcula
+  // usd/ars con su propia lógica de cotización). ----
+  function activosDeCuenta(c) {
+    const rows = activosPorCuenta[c.id] || [];
+    if (c.tipo === "bolsa") {
+      return rows.map((r) => {
+        const { valorActual, valorUSD } = bolsaCompute(r);
+        return { id: r.id, label: r.ticker || "—", usd: valorUSD, ars: valorActual };
+      });
+    }
+    if (c.tipo === "cripto") {
+      return rows.map((r) => {
+        const { valorActual, valorARS } = criptoCompute(r);
+        return { id: r.id, label: r.activo || "—", usd: valorActual, ars: valorARS };
+      });
+    }
+    return rows.map((r) => {
+      const { valorARS } = usdtCompute(r);
+      return { id: r.id, label: r.activo || "—", usd: Number(r.valor_actual_usd) || 0, ars: valorARS };
+    });
   }
 
   const gruposResumen = [
@@ -368,10 +393,10 @@ export default function AhorrosView() {
             <table className="tbl">
               <thead>
                 <tr>
-                  <th>Cuenta</th>
-                  <th>Tipo</th>
+                  <th>Activo</th>
                   <th style={{ textAlign: "right" }}>USD</th>
                   <th style={{ textAlign: "right" }}>ARS</th>
+                  <th style={{ textAlign: "right" }}>% de la cuenta</th>
                   <th style={{ textAlign: "right" }}>% del total</th>
                 </tr>
               </thead>
@@ -382,26 +407,45 @@ export default function AhorrosView() {
                   return (
                     <Fragment key={g.tipo}>
                       {g.cuentas.map((c) => {
-                        const t = totalesDeCuenta(c);
+                        const activos = activosDeCuenta(c);
+                        const cuentaTotal = totalesDeCuenta(c);
                         return (
-                          <tr key={c.id}>
-                            <td>
-                              <span className="manage-cards-dot" style={{ background: c.color, marginRight: 8 }} />
-                              {c.nombre}
-                            </td>
-                            <td>{tipoLabel(c.tipo)}</td>
-                            <td style={{ textAlign: "right" }}>{fmtUSD(t.usd)}</td>
-                            <td style={{ textAlign: "right" }}>{fmtARS(t.ars)}</td>
-                            <td style={{ textAlign: "right" }}>
-                              {fmtPct(resumen.totalUSD ? t.usd / resumen.totalUSD : 0)}
-                            </td>
-                          </tr>
+                          <Fragment key={c.id}>
+                            {activos.map((a) => (
+                              <tr key={a.id}>
+                                <td>{a.label}</td>
+                                <td style={{ textAlign: "right" }}>{fmtUSD(a.usd)}</td>
+                                <td style={{ textAlign: "right" }}>{fmtARS(a.ars)}</td>
+                                <td style={{ textAlign: "right" }}>
+                                  {fmtPct(cuentaTotal.usd ? a.usd / cuentaTotal.usd : 0)}
+                                </td>
+                                <td style={{ textAlign: "right" }}>
+                                  {fmtPct(resumen.totalUSD ? a.usd / resumen.totalUSD : 0)}
+                                </td>
+                              </tr>
+                            ))}
+                            {g.cuentas.length > 1 && (
+                              <tr className="tbl-total">
+                                <td>
+                                  <span className="manage-cards-dot" style={{ background: c.color, marginRight: 8 }} />
+                                  Subtotal {c.nombre}
+                                </td>
+                                <td style={{ textAlign: "right" }}>{fmtUSD(cuentaTotal.usd)}</td>
+                                <td style={{ textAlign: "right" }}>{fmtARS(cuentaTotal.ars)}</td>
+                                <td style={{ textAlign: "right" }}>—</td>
+                                <td style={{ textAlign: "right" }}>
+                                  {fmtPct(resumen.totalUSD ? cuentaTotal.usd / resumen.totalUSD : 0)}
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
                         );
                       })}
-                      <tr className="tbl-subtotal">
-                        <td colSpan={2}>Subtotal {tipoLabel(g.tipo)}</td>
+                      <tr className="tbl-total">
+                        <td style={{ color: TIPO_ACCENT[g.tipo] }}>Subtotal {tipoLabel(g.tipo)}</td>
                         <td style={{ textAlign: "right" }}>{fmtUSD(subtotalUSD)}</td>
                         <td style={{ textAlign: "right" }}>{fmtARS(subtotalARS)}</td>
+                        <td style={{ textAlign: "right" }}>—</td>
                         <td style={{ textAlign: "right" }}>
                           {fmtPct(resumen.totalUSD ? subtotalUSD / resumen.totalUSD : 0)}
                         </td>
@@ -412,9 +456,10 @@ export default function AhorrosView() {
               </tbody>
               <tfoot>
                 <tr className="tbl-total">
-                  <td colSpan={2}>TOTAL</td>
+                  <td>TOTAL</td>
                   <td style={{ textAlign: "right" }}>{fmtUSD(resumen.totalUSD)}</td>
                   <td style={{ textAlign: "right" }}>{fmtARS(resumen.totalARS)}</td>
+                  <td style={{ textAlign: "right" }}>—</td>
                   <td style={{ textAlign: "right" }}>100%</td>
                 </tr>
               </tfoot>
