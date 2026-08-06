@@ -3,9 +3,18 @@ import { supabase } from "./lib/supabaseClient.js";
 import { processQueue, subscribeQueueCount } from "./lib/offlineQueue.js";
 import { setCachedUserId } from "./lib/auth.js";
 import { requestPersistentStorage } from "./lib/authStorage.js";
+import { getUnlockConfig, isBiometricAvailable } from "./lib/quickUnlock.js";
 import Login from "./features/auth/Login.jsx";
+import LockScreen from "./features/auth/LockScreen.jsx";
+import UnlockSetupPrompt from "./features/auth/UnlockSetupPrompt.jsx";
+import UnlockSettingsPanel from "./features/auth/UnlockSettingsPanel.jsx";
 import TarjetasView from "./features/tarjetas/TarjetasView.jsx";
 import AhorrosView from "./features/ahorros/AhorrosView.jsx";
+
+// Umbral de inactividad en segundo plano a partir del cual, al volver, se
+// vuelve a pedir el desbloqueo rápido (no cada vez que se cambia de pestaña
+// un instante).
+const RELOCK_AFTER_MS = 5 * 60 * 1000;
 
 const VIEW_MODES = ["auto", "desktop", "mobile"];
 const VIEW_MODE_LABEL = { auto: "Auto", desktop: "Vista escritorio", mobile: "Vista mobile" };
@@ -18,8 +27,16 @@ export default function App() {
   const [viewMode, setViewMode] = useState("auto");
   const [pendingCount, setPendingCount] = useState(0);
 
+  const [unlockConfig, setUnlockConfig] = useState(null);
+  const [unlockChecked, setUnlockChecked] = useState(false);
+  const [locked, setLocked] = useState(false);
+  const [showSetupPrompt, setShowSetupPrompt] = useState(false);
+  const [showUnlockSettings, setShowUnlockSettings] = useState(false);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+
   useEffect(() => {
     requestPersistentStorage();
+    isBiometricAvailable().then(setBiometricAvailable);
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setCachedUserId(data.session?.user?.id);
@@ -31,6 +48,50 @@ export default function App() {
     });
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  // Al aparecer una sesión (login fresco o recarga con sesión persistida),
+  // se consulta si esta cuenta tiene un método de desbloqueo configurado:
+  // si lo tiene, arranca bloqueada (caso 1: apertura fresca); si no, y
+  // todavía no se le preguntó, se ofrece activarlo.
+  useEffect(() => {
+    const uid = session?.user?.id;
+    if (!uid) {
+      setUnlockConfig(null);
+      setUnlockChecked(false);
+      setLocked(false);
+      setShowSetupPrompt(false);
+      return;
+    }
+    getUnlockConfig(uid).then((config) => {
+      setUnlockConfig(config);
+      if (config?.method) {
+        setLocked(true);
+      } else if (!config?.askedSetup) {
+        setShowSetupPrompt(true);
+      }
+      setUnlockChecked(true);
+    });
+  }, [session?.user?.id]);
+
+  // Caso 2: la app vuelve de segundo plano después de 5+ minutos inactiva.
+  useEffect(() => {
+    let hiddenAt = null;
+    function onVisibilityChange() {
+      if (document.visibilityState === "hidden") {
+        hiddenAt = Date.now();
+        return;
+      }
+      if (document.visibilityState === "visible" && hiddenAt) {
+        const elapsed = Date.now() - hiddenAt;
+        hiddenAt = null;
+        if (elapsed >= RELOCK_AFTER_MS && unlockConfig?.method) {
+          setLocked(true);
+        }
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, [unlockConfig]);
 
   useEffect(() => {
     const unsubscribe = subscribeQueueCount(setPendingCount);
@@ -71,6 +132,31 @@ export default function App() {
     return <Login />;
   }
 
+  if (locked && unlockConfig?.method) {
+    return (
+      <LockScreen
+        config={unlockConfig}
+        userId={session.user.id}
+        onUnlock={() => setLocked(false)}
+        onUseCodeInstead={() => supabase.auth.signOut()}
+      />
+    );
+  }
+
+  if (showSetupPrompt && unlockChecked) {
+    return (
+      <UnlockSetupPrompt
+        userId={session.user.id}
+        userLabel={session.user.email}
+        biometricAvailable={biometricAvailable}
+        onDone={() => {
+          setShowSetupPrompt(false);
+          getUnlockConfig(session.user.id).then(setUnlockConfig);
+        }}
+      />
+    );
+  }
+
   return (
     <div className={rootClass}>
       <div className="app-header">
@@ -87,6 +173,14 @@ export default function App() {
             <span aria-hidden="true">{VIEW_MODE_ICON[viewMode]}</span>
             {VIEW_MODE_LABEL[viewMode]}
           </button>
+          <button
+            className="view-toggle-btn"
+            onClick={() => setShowUnlockSettings((v) => !v)}
+            title="Configurar desbloqueo rápido"
+          >
+            <span aria-hidden="true">🔒</span>
+            Desbloqueo
+          </button>
           <button className="view-toggle-btn" onClick={handleLogout} title="Cerrar sesión">
             <span aria-hidden="true">🚪</span>
             Cerrar sesión
@@ -97,6 +191,20 @@ export default function App() {
         Conectado a Supabase como <strong>{session.user.email}</strong> — los datos se
         guardan en la base, no en el navegador.
       </p>
+
+      {showUnlockSettings && (
+        <UnlockSettingsPanel
+          userId={session.user.id}
+          userLabel={session.user.email}
+          config={unlockConfig}
+          biometricAvailable={biometricAvailable}
+          onChange={(config) => {
+            setUnlockConfig(config ? { ...unlockConfig, ...config } : null);
+            setShowUnlockSettings(false);
+          }}
+          onClose={() => setShowUnlockSettings(false)}
+        />
+      )}
 
       {pendingCount > 0 && (
         <div className="offline-banner">
