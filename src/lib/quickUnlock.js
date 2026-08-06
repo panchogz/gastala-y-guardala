@@ -34,6 +34,23 @@ function reqToPromise(req) {
   });
 }
 
+// El "success" de un request individual (put/delete) no garantiza que la
+// transacción ya haya confirmado en disco. En iOS, la hoja del sistema de
+// Face ID/Touch ID suspende el WKWebView justo cuando este código corre
+// (llamado desde setupBiometric, inmediatamente después de que
+// navigator.credentials.create() resuelve) — si la pestaña se
+// suspende/recarga antes de que la transacción termine de commitear, el
+// registro se pierde en silencio aunque el flujo de setup haya parecido
+// completarse. Por eso las escrituras esperan tx.oncomplete, no solo el
+// onsuccess del request.
+function txToPromise(tx) {
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+
 export async function getUnlockConfig(userId) {
   if (!userId) return null;
   const db = await openDB();
@@ -45,13 +62,15 @@ export async function getUnlockConfig(userId) {
 export async function saveUnlockConfig(userId, config) {
   const db = await openDB();
   const tx = db.transaction(STORE, "readwrite");
-  await reqToPromise(tx.objectStore(STORE).put(config, userId));
+  tx.objectStore(STORE).put(config, userId);
+  await txToPromise(tx);
 }
 
 export async function clearUnlockConfig(userId) {
   const db = await openDB();
   const tx = db.transaction(STORE, "readwrite");
-  await reqToPromise(tx.objectStore(STORE).delete(userId));
+  tx.objectStore(STORE).delete(userId);
+  await txToPromise(tx);
 }
 
 // Se guarda por separado del método en sí (con método "skip" alcanzaría,
