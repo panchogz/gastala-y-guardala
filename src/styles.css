@@ -169,6 +169,11 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
   background: #12161B; border: 1px solid #2A313B; color: #E8E6E1;
   padding: 6px 8px; border-radius: 6px; font-size: 13px;
 }
+.manage-cards-edit { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1; }
+.manage-cards-edit input[type="text"] {
+  background: #12161B; border: 1px solid #2A313B; color: #E8E6E1;
+  padding: 5px 8px; border-radius: 6px; font-size: 13px; min-width: 140px; flex: 1;
+}
 .color-palette { display: flex; gap: 6px; }
 .color-swatch {
   width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0;

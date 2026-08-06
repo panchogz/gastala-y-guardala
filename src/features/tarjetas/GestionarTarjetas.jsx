@@ -10,6 +10,36 @@ export default function GestionarTarjetas({ tarjetas, onChange }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
+  const [editingId, setEditingId] = useState(null);
+  const [editNombre, setEditNombre] = useState("");
+  const [editColor, setEditColor] = useState("");
+
+  function startEdit(t) {
+    setEditingId(t.id);
+    setEditNombre(t.nombre);
+    setEditColor(t.color);
+    setError(null);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+  }
+
+  async function saveEdit(t) {
+    if (!editNombre.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await api.updateTarjeta(t.id, { nombre: editNombre.trim(), color: editColor });
+      setEditingId(null);
+      await onChange();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleAdd() {
     if (!nombre.trim()) return;
     setSaving(true);
@@ -55,15 +85,53 @@ export default function GestionarTarjetas({ tarjetas, onChange }) {
 
           {tarjetas.length > 0 && (
             <ul className="manage-cards-list">
-              {tarjetas.map((t) => (
-                <li key={t.id}>
-                  <span className="manage-cards-dot" style={{ background: t.color }} />
-                  <span className="manage-cards-name">{t.nombre}</span>
-                  <button className="btn-del" onClick={() => handleDelete(t)} title="Eliminar tarjeta">
-                    ×
-                  </button>
-                </li>
-              ))}
+              {tarjetas.map((t) =>
+                editingId === t.id ? (
+                  <li key={t.id}>
+                    <div className="manage-cards-edit">
+                      <input
+                        type="text"
+                        value={editNombre}
+                        onChange={(e) => setEditNombre(e.target.value)}
+                        autoFocus
+                      />
+                      <div className="color-palette">
+                        {PALETTE.map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            className={`color-swatch ${editColor === c ? "selected" : ""}`}
+                            style={{ background: c }}
+                            onClick={() => setEditColor(c)}
+                            aria-label={c}
+                          />
+                        ))}
+                      </div>
+                      <button
+                        className="btn-add"
+                        disabled={saving || !editNombre.trim()}
+                        onClick={() => saveEdit(t)}
+                      >
+                        Guardar
+                      </button>
+                      <button type="button" className="login-resend" onClick={cancelEdit} style={{ margin: 0 }}>
+                        Cancelar
+                      </button>
+                    </div>
+                  </li>
+                ) : (
+                  <li key={t.id}>
+                    <span className="manage-cards-dot" style={{ background: t.color }} />
+                    <span className="manage-cards-name">{t.nombre}</span>
+                    <button className="btn-del" onClick={() => startEdit(t)} title="Editar tarjeta" style={{ color: "#8B93A1" }}>
+                      ✎
+                    </button>
+                    <button className="btn-del" onClick={() => handleDelete(t)} title="Eliminar tarjeta">
+                      ×
+                    </button>
+                  </li>
+                )
+              )}
             </ul>
           )}
 

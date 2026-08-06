@@ -42,6 +42,10 @@ export async function insertCuentaAhorro({ tipo, nombre, color, orden }) {
   return queuedInsert("cuentas_ahorro", { tipo, nombre, color, orden, user_id });
 }
 
+export async function updateCuentaAhorro(id, patch) {
+  await queuedUpdate("cuentas_ahorro", "id", id, patch);
+}
+
 export async function deleteCuentaAhorro(id) {
   // activos_bolsa/cripto/usdt.cuenta_id tiene ON DELETE CASCADE: borrar la cuenta
   // se lleva puestos sus activos sin necesidad de borrarlos a mano acá.

@@ -19,6 +19,10 @@ export async function insertTarjeta({ nombre, color, orden }) {
   return queuedInsert("tarjetas", { nombre, color, orden, user_id });
 }
 
+export async function updateTarjeta(id, patch) {
+  await queuedUpdate("tarjetas", "id", id, patch);
+}
+
 export async function deleteTarjeta(id) {
   // Borrado explícito de lo asociado primero: funciona haya o no ON DELETE CASCADE
   // configurado en las foreign keys. RLS ya restringe todo esto al usuario dueño.

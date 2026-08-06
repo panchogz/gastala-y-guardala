@@ -21,6 +21,16 @@ function apiForTipo(tipo) {
 }
 
 const TIPO_ACCENT = { bolsa: "#5B9BE8", cripto: "#35D0A0", usdt: "#E8A855" };
+// Orden fijo de tipos (Bolsa → Cripto → USD/Stable), independiente del orden de
+// creación de las cuentas. Dentro de cada tipo, cuentas y activos van alfabéticos.
+const TIPO_ORDEN = { bolsa: 0, cripto: 1, usdt: 2 };
+
+const porNombre = (a, b) => (a.nombre || "").localeCompare(b.nombre || "", "es");
+const porTipoYNombre = (a, b) => TIPO_ORDEN[a.tipo] - TIPO_ORDEN[b.tipo] || porNombre(a, b);
+
+function sortByLabel(rows, field) {
+  return [...rows].sort((a, b) => String(a[field] ?? "").localeCompare(String(b[field] ?? ""), "es"));
+}
 
 export default function AhorrosView() {
   const [loading, setLoading] = useState(true);
@@ -88,9 +98,9 @@ export default function AhorrosView() {
     }
   }
 
-  const cuentasBolsa = cuentas.filter((c) => c.tipo === "bolsa");
-  const cuentasCripto = cuentas.filter((c) => c.tipo === "cripto");
-  const cuentasUsdt = cuentas.filter((c) => c.tipo === "usdt");
+  const cuentasBolsa = cuentas.filter((c) => c.tipo === "bolsa").sort(porNombre);
+  const cuentasCripto = cuentas.filter((c) => c.tipo === "cripto").sort(porNombre);
+  const cuentasUsdt = cuentas.filter((c) => c.tipo === "usdt").sort(porNombre);
   const usaBolsa = cuentasBolsa.length > 0;
   const usaCripto = cuentasCripto.length > 0;
   const usaUsdt = cuentasUsdt.length > 0;
@@ -187,22 +197,24 @@ export default function AhorrosView() {
   // usd/ars con su propia lógica de cotización). ----
   function activosDeCuenta(c) {
     const rows = activosPorCuenta[c.id] || [];
+    let activos;
     if (c.tipo === "bolsa") {
-      return rows.map((r) => {
+      activos = rows.map((r) => {
         const { valorActual, valorUSD } = bolsaCompute(r);
         return { id: r.id, label: r.ticker || "—", usd: valorUSD, ars: valorActual };
       });
-    }
-    if (c.tipo === "cripto") {
-      return rows.map((r) => {
+    } else if (c.tipo === "cripto") {
+      activos = rows.map((r) => {
         const { valorActual, valorARS } = criptoCompute(r);
         return { id: r.id, label: r.activo || "—", usd: valorActual, ars: valorARS };
       });
+    } else {
+      activos = rows.map((r) => {
+        const { valorARS } = usdtCompute(r);
+        return { id: r.id, label: r.activo || "—", usd: Number(r.valor_actual_usd) || 0, ars: valorARS };
+      });
     }
-    return rows.map((r) => {
-      const { valorARS } = usdtCompute(r);
-      return { id: r.id, label: r.activo || "—", usd: Number(r.valor_actual_usd) || 0, ars: valorARS };
-    });
+    return sortByLabel(activos, "label");
   }
 
   const gruposResumen = [
@@ -235,7 +247,7 @@ export default function AhorrosView() {
   const cuentasEnEvolucion = cuentaIdsEnEvolucion
     .map((id) => cuentas.find((c) => c.id === id))
     .filter(Boolean)
-    .sort((a, b) => (Number(a.orden) || 0) - (Number(b.orden) || 0));
+    .sort(porTipoYNombre);
 
   const chartData = mesesEvolucion.map((mes) => {
     const obj = { mes: mesLabel(mes.slice(0, 7)) };
@@ -289,7 +301,7 @@ export default function AhorrosView() {
               key={c.id}
               title={c.nombre}
               accent={c.color}
-              rows={activosPorCuenta[c.id] || []}
+              rows={sortByLabel(activosPorCuenta[c.id] || [], "ticker")}
               setRows={setRowsFor(c.id)}
               fields={["ticker", "cantidad", "precio_compra_ars", "precio_actual_ars"]}
               onAdd={() =>
@@ -325,7 +337,7 @@ export default function AhorrosView() {
               key={c.id}
               title={c.nombre}
               accent={c.color}
-              rows={activosPorCuenta[c.id] || []}
+              rows={sortByLabel(activosPorCuenta[c.id] || [], "activo")}
               setRows={setRowsFor(c.id)}
               fields={["activo", "cantidad", "precio_compra_usd", "precio_actual_usd"]}
               onAdd={() =>
@@ -361,7 +373,7 @@ export default function AhorrosView() {
               key={c.id}
               title={c.nombre}
               accent={c.color}
-              rows={activosPorCuenta[c.id] || []}
+              rows={sortByLabel(activosPorCuenta[c.id] || [], "activo")}
               setRows={setRowsFor(c.id)}
               fields={["activo", "costo_total_usd", "valor_actual_usd"]}
               onAdd={() => api.usdtApi.insert(c.id, { activo: "", costo_total_usd: 0, valor_actual_usd: 0 })}
