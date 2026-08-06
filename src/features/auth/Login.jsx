@@ -11,7 +11,7 @@ const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 // Pidiendo el código por email y verificándolo con supabase.auth.verifyOtp()
 // dentro de la misma pantalla, el login se completa en el contexto correcto
 // sin depender de que ningún storage se comparta entre pestañas.
-export default function Login() {
+export default function Login({ onVerified }) {
   const [step, setStep] = useState("email"); // email | code
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -48,6 +48,11 @@ export default function Login() {
     setVerifying(true);
     setError(null);
     try {
+      // Se marca antes del await: supabase-js puede disparar
+      // onAuthStateChange (y con eso el efecto de App.jsx que lee esta
+      // marca) apenas la llamada resuelve internamente, antes de que
+      // nuestro propio .then() llegue a correr.
+      onVerified?.();
       const { error } = await supabase.auth.verifyOtp({
         email: email.trim(),
         token: code.trim(),

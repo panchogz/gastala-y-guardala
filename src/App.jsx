@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "./lib/supabaseClient.js";
 import { processQueue, subscribeQueueCount } from "./lib/offlineQueue.js";
 import { setCachedUserId } from "./lib/auth.js";
@@ -33,6 +33,10 @@ export default function App() {
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
   const [showUnlockSettings, setShowUnlockSettings] = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(null);
+  // Se marca cuando el usuario completa un login OTP nuevo (no una sesión
+  // restaurada al recargar), para forzar que el prompt de setup de
+  // desbloqueo rápido reaparezca y pueda recambiar de método.
+  const freshLoginRef = useRef(false);
 
   useEffect(() => {
     requestPersistentStorage();
@@ -64,7 +68,10 @@ export default function App() {
     }
     getUnlockConfig(uid).then((config) => {
       setUnlockConfig(config);
-      if (config?.method) {
+      if (freshLoginRef.current) {
+        freshLoginRef.current = false;
+        setShowSetupPrompt(true);
+      } else if (config?.method) {
         setLocked(true);
       } else if (!config?.askedSetup) {
         setShowSetupPrompt(true);
@@ -129,7 +136,7 @@ export default function App() {
   }
 
   if (!session) {
-    return <Login />;
+    return <Login onVerified={() => { freshLoginRef.current = true; }} />;
   }
 
   if (locked && unlockConfig?.method) {
@@ -149,6 +156,7 @@ export default function App() {
         userId={session.user.id}
         userLabel={session.user.email}
         biometricAvailable={biometricAvailable}
+        existingConfig={unlockConfig}
         onDone={() => {
           setShowSetupPrompt(false);
           getUnlockConfig(session.user.id).then(setUnlockConfig);

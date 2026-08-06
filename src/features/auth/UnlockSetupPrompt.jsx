@@ -1,8 +1,14 @@
 import { useState } from "react";
 import { markSetupAsked, setupBiometric, setupPin } from "../../lib/quickUnlock.js";
 
-export default function UnlockSetupPrompt({ userId, userLabel, biometricAvailable, onDone }) {
-  const [mode, setMode] = useState("choose"); // choose | biometric-confirm | pin | pin-confirm
+export default function UnlockSetupPrompt({
+  userId,
+  userLabel,
+  biometricAvailable,
+  existingConfig,
+  onDone,
+}) {
+  const [mode, setMode] = useState("choose"); // choose | biometric-confirm | biometric-keep | pin | pin-confirm | pin-keep
   const [pin, setPin] = useState("");
   const [pinFirst, setPinFirst] = useState("");
   const [error, setError] = useState(null);
@@ -11,6 +17,29 @@ export default function UnlockSetupPrompt({ userId, userLabel, biometricAvailabl
   async function skip() {
     await markSetupAsked(userId);
     onDone();
+  }
+
+  // Reelegir el mismo método ya configurado (típicamente al reaparecer este
+  // prompt en un login OTP nuevo) no debe recrear nada — solo confirma que
+  // se sigue usando lo que ya había. Cambiarlo de verdad es cosa del panel
+  // de 🔒 Desbloqueo en el header.
+  function selectBiometric() {
+    setMode(existingConfig?.method === "webauthn" ? "biometric-keep" : "biometric-confirm");
+  }
+
+  function selectPin() {
+    setMode(existingConfig?.method === "pin" ? "pin-keep" : "pin");
+  }
+
+  async function keepExisting() {
+    setBusy(true);
+    setError(null);
+    try {
+      await markSetupAsked(userId);
+      onDone();
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function chooseBiometric() {
@@ -71,7 +100,7 @@ export default function UnlockSetupPrompt({ userId, userLabel, biometricAvailabl
                 <button
                   className="btn-register"
                   style={{ background: "#35D0A0" }}
-                  onClick={() => setMode("biometric-confirm")}
+                  onClick={selectBiometric}
                   disabled={busy}
                 >
                   🔐 Face ID / Touch ID
@@ -80,7 +109,7 @@ export default function UnlockSetupPrompt({ userId, userLabel, biometricAvailabl
               <button
                 className="btn-register"
                 style={{ background: "#5B9BE8" }}
-                onClick={() => setMode("pin")}
+                onClick={selectPin}
                 disabled={busy}
               >
                 🔢 Usar un PIN
@@ -89,6 +118,63 @@ export default function UnlockSetupPrompt({ userId, userLabel, biometricAvailabl
                 Omitir por ahora
               </button>
             </div>
+          </>
+        )}
+
+        {mode === "biometric-keep" && (
+          <>
+            <p className="empty">
+              Ya tenés Face ID / Touch ID configurado en este dispositivo. Vas a seguir
+              usando esa misma credencial.
+            </p>
+            <div className="login-form">
+              <button
+                className="btn-register"
+                style={{ background: "#35D0A0" }}
+                onClick={keepExisting}
+                disabled={busy}
+              >
+                {busy ? "Confirmando…" : "Seguir usándola"}
+              </button>
+              <button
+                type="button"
+                className="login-resend"
+                onClick={() => setMode("biometric-confirm")}
+                disabled={busy}
+              >
+                No me anduvo bien, volver a configurarla
+              </button>
+              <button
+                type="button"
+                className="login-resend"
+                onClick={() => setMode("choose")}
+                disabled={busy}
+              >
+                Volver
+              </button>
+            </div>
+          </>
+        )}
+
+        {mode === "pin-keep" && (
+          <>
+            <p className="empty">Ya tenés un PIN configurado. Vas a seguir usando ese mismo.</p>
+            <div className="login-form">
+              <button
+                className="btn-register"
+                style={{ background: "#35D0A0" }}
+                onClick={keepExisting}
+                disabled={busy}
+              >
+                {busy ? "Confirmando…" : "Seguir usándolo"}
+              </button>
+              <button type="button" className="login-resend" onClick={() => setMode("choose")} disabled={busy}>
+                Volver
+              </button>
+            </div>
+            <p className="empty" style={{ marginTop: 8 }}>
+              Para cambiarlo, usá 🔒 Desbloqueo en el menú.
+            </p>
           </>
         )}
 
