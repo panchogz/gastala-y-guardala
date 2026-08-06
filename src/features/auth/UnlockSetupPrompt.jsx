@@ -2,7 +2,7 @@ import { useState } from "react";
 import { markSetupAsked, setupBiometric, setupPin } from "../../lib/quickUnlock.js";
 
 export default function UnlockSetupPrompt({ userId, userLabel, biometricAvailable, onDone }) {
-  const [mode, setMode] = useState("choose"); // choose | pin | pin-confirm
+  const [mode, setMode] = useState("choose"); // choose | biometric-confirm | pin | pin-confirm
   const [pin, setPin] = useState("");
   const [pinFirst, setPinFirst] = useState("");
   const [error, setError] = useState(null);
@@ -71,7 +71,7 @@ export default function UnlockSetupPrompt({ userId, userLabel, biometricAvailabl
                 <button
                   className="btn-register"
                   style={{ background: "#35D0A0" }}
-                  onClick={chooseBiometric}
+                  onClick={() => setMode("biometric-confirm")}
                   disabled={busy}
                 >
                   🔐 Face ID / Touch ID
@@ -87,6 +87,34 @@ export default function UnlockSetupPrompt({ userId, userLabel, biometricAvailabl
               </button>
               <button type="button" className="login-resend" onClick={skip} disabled={busy}>
                 Omitir por ahora
+              </button>
+            </div>
+          </>
+        )}
+
+        {mode === "biometric-confirm" && (
+          <>
+            <p className="empty">
+              Probablemente veas un cuadro de iOS/Android pidiendo confirmar la biometría
+              cada vez que abras la app — es normal (lamentablemente). No podemos evitar
+              ese paso ya que es una restricción de seguridad.
+            </p>
+            <div className="login-form">
+              <button
+                className="btn-register"
+                style={{ background: "#35D0A0" }}
+                onClick={chooseBiometric}
+                disabled={busy}
+              >
+                {busy ? "Activando…" : "Entendido, continuar"}
+              </button>
+              <button
+                type="button"
+                className="login-resend"
+                onClick={() => setMode("choose")}
+                disabled={busy}
+              >
+                Volver
               </button>
             </div>
           </>

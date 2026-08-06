@@ -32,7 +32,7 @@ export default function App() {
   const [locked, setLocked] = useState(false);
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
   const [showUnlockSettings, setShowUnlockSettings] = useState(false);
-  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [biometricAvailable, setBiometricAvailable] = useState(null);
 
   useEffect(() => {
     requestPersistentStorage();
@@ -143,7 +143,7 @@ export default function App() {
     );
   }
 
-  if (showSetupPrompt && unlockChecked) {
+  if (showSetupPrompt && unlockChecked && biometricAvailable !== null) {
     return (
       <UnlockSetupPrompt
         userId={session.user.id}
