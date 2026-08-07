@@ -4,9 +4,9 @@ solo recibe datos ya cargados por el cliente y los convierte a Excel.
 
 Solapa "Tarjetas" (resumen del mes, evolución mensual con gráfico nativo, y
 detalle opcional de cuotas/dólares/recurrentes por tarjeta) y solapa
-"Ahorros" (resumen de 3 niveles activo→cuenta→tipo, distribución por tipo en
-anillo, evolución mensual con gráfico nativo, y detalle opcional de activos
-por cuenta).
+"Ahorros" (resumen de 3 niveles activo→cuenta→tipo, distribución por tipo y
+por cuenta en gráficos de torta, evolución mensual con gráfico nativo, y
+detalle opcional de activos por cuenta).
 """
 
 import io
@@ -42,6 +42,12 @@ BORDER = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
 
 ARS_FMT = '#,##0" ARS"'
 USD_FMT = '#,##0.00" USD"'
+
+
+def darken_hex(hex_color, factor=0.75):
+    hex_color = (hex_color or "").lstrip("#")
+    r, g, b = (int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
+    return "".join(f"{max(0, round(c * factor)):02X}" for c in (r, g, b))
 
 
 def mes_label(mes_iso):
@@ -271,7 +277,9 @@ def _build_tarjetas_sheet(wb, payload):
         # en vez de ajustar el layout manual del título, se saca del eje y
         # se suma al título general del gráfico.
         chart.title = chart_title("Evolución mensual por tarjeta (ARS)")
-        chart.x_axis.title = "Mes"
+        # El título del eje X ("Mes") se solapaba con las etiquetas
+        # (jun-26/jul-26/...) con 3+ meses cargados; se saca por el mismo
+        # motivo que el título del eje Y de arriba, además de ser redundante.
         chart.style = 2
         chart.width = 22
         chart.height = 11
@@ -404,14 +412,28 @@ def _write_pie_chart(ws, anchor_cell, title, data_ref, cats_ref, colors):
     chart.set_categories(cats_ref)
 
     series = chart.series[0]
+    # Contorno más oscuro que el relleno en cada porción: sin esto, cuentas
+    # del mismo tipo (mismo color base, ej. dos cuentas de Bolsa) se
+    # confunden entre sí en "Distribución por cuenta".
     series.data_points = [
-        DataPoint(idx=i, spPr=GraphicalProperties(solidFill=color)) for i, color in enumerate(colors)
+        DataPoint(
+            idx=i,
+            spPr=GraphicalProperties(solidFill=color, ln=LineProperties(solidFill=darken_hex(color), w=9525)),
+        )
+        for i, color in enumerate(colors)
     ]
 
     ws.add_chart(chart, anchor_cell)
 
 
 def _write_distribucion_tipo(ws, row, resumen):
+    # Las dos mini-tablas van apiladas en las mismas columnas A/B (en vez de
+    # una al lado de la otra) para no tener que reservar una columna "de
+    # relleno" entre ellas: autosize() recalcula el ancho de una columna
+    # mirando todo su contenido de punta a punta, así que cualquier ancho
+    # angosto puesto acá quedaba pisado apenas la tabla de evolución (más
+    # abajo) volvía a autosizear esa misma columna. Apiladas, los gráficos
+    # quedan pegados justo a la derecha (columna D) sin ese hueco.
     grupos = [g for g in (resumen.get("grupos") or []) if float(g.get("subtotalUSD") or 0) > 0]
     cuentas_flat = [
         (c, g.get("tipo")) for g in (resumen.get("grupos") or []) for c in (g.get("cuentas") or [])
@@ -419,50 +441,52 @@ def _write_distribucion_tipo(ws, row, resumen):
     ]
 
     ws.cell(row=row, column=1, value="Distribución por tipo").font = Font(bold=True, size=13)
-    ws.cell(row=row, column=4, value="Distribución por cuenta").font = Font(bold=True, size=13)
     row += 1
-
-    header_row = row
-    ws.cell(row=header_row, column=1, value="Tipo")
-    ws.cell(row=header_row, column=2, value="Total USD")
-    style_header_row(ws, header_row, 1, 2)
-    ws.cell(row=header_row, column=4, value="Cuenta")
-    ws.cell(row=header_row, column=5, value="Total USD")
-    style_header_row(ws, header_row, 4, 5)
+    header_row_tipo = row
+    ws.cell(row=row, column=1, value="Tipo")
+    ws.cell(row=row, column=2, value="Total USD")
+    style_header_row(ws, row, 1, 2)
     row += 1
-
-    first_data_row = row
-    for i in range(max(len(grupos), len(cuentas_flat))):
-        r = first_data_row + i
-        if i < len(grupos):
-            g = grupos[i]
-            ws.cell(row=r, column=1, value=TIPO_AHORRO_LABEL.get(g.get("tipo"), g.get("tipo")))
-            ws.cell(row=r, column=2, value=float(g.get("subtotalUSD") or 0)).number_format = USD_FMT
-        if i < len(cuentas_flat):
-            c, _tipo = cuentas_flat[i]
-            ws.cell(row=r, column=4, value=c.get("nombre") or "")
-            ws.cell(row=r, column=5, value=float(c.get("totalUSD") or 0)).number_format = USD_FMT
-    last_tipo_row = first_data_row + len(grupos) - 1
-    last_cuenta_row = first_data_row + len(cuentas_flat) - 1
-    row = first_data_row + max(len(grupos), len(cuentas_flat))
+    first_data_row_tipo = row
+    for g in grupos:
+        ws.cell(row=row, column=1, value=TIPO_AHORRO_LABEL.get(g.get("tipo"), g.get("tipo")))
+        ws.cell(row=row, column=2, value=float(g.get("subtotalUSD") or 0)).number_format = USD_FMT
+        row += 1
+    last_data_row_tipo = row - 1
     autosize(ws, 1, 2)
-    autosize(ws, 4, 5)
+    row += 2
 
-    section_end_row = row + 2
+    ws.cell(row=row, column=1, value="Distribución por cuenta").font = Font(bold=True, size=13)
+    row += 1
+    header_row_cuenta = row
+    ws.cell(row=row, column=1, value="Cuenta")
+    ws.cell(row=row, column=2, value="Total USD")
+    style_header_row(ws, row, 1, 2)
+    row += 1
+    first_data_row_cuenta = row
+    for c, _tipo in cuentas_flat:
+        ws.cell(row=row, column=1, value=c.get("nombre") or "")
+        ws.cell(row=row, column=2, value=float(c.get("totalUSD") or 0)).number_format = USD_FMT
+        row += 1
+    last_data_row_cuenta = row - 1
+    autosize(ws, 1, 2)
+    row += 2
+
+    section_end_row = row
 
     if grupos:
-        data = Reference(ws, min_col=2, min_row=header_row, max_row=last_tipo_row)
-        cats = Reference(ws, min_col=1, min_row=first_data_row, max_row=last_tipo_row)
+        data = Reference(ws, min_col=2, min_row=header_row_tipo, max_row=last_data_row_tipo)
+        cats = Reference(ws, min_col=1, min_row=first_data_row_tipo, max_row=last_data_row_tipo)
         colors = [TIPO_AHORRO_COLOR.get(g.get("tipo"), "5B9BE8") for g in grupos]
-        _write_pie_chart(ws, f"G{header_row}", "Distribución por tipo", data, cats, colors)
-        section_end_row = max(section_end_row, header_row + 20)
+        _write_pie_chart(ws, f"D{header_row_tipo}", "Distribución por tipo", data, cats, colors)
+        section_end_row = max(section_end_row, header_row_tipo + 20)
 
     if cuentas_flat:
-        data = Reference(ws, min_col=5, min_row=header_row, max_row=last_cuenta_row)
-        cats = Reference(ws, min_col=4, min_row=first_data_row, max_row=last_cuenta_row)
+        data = Reference(ws, min_col=2, min_row=header_row_cuenta, max_row=last_data_row_cuenta)
+        cats = Reference(ws, min_col=1, min_row=first_data_row_cuenta, max_row=last_data_row_cuenta)
         colors = [(c.get("color") or "5B9BE8").lstrip("#").upper() for c, _tipo in cuentas_flat]
-        _write_pie_chart(ws, f"G{header_row + 20}", "Distribución por cuenta", data, cats, colors)
-        section_end_row = max(section_end_row, header_row + 40)
+        _write_pie_chart(ws, f"D{header_row_tipo + 20}", "Distribución por cuenta", data, cats, colors)
+        section_end_row = max(section_end_row, header_row_tipo + 40)
 
     return section_end_row
 
