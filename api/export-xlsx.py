@@ -406,17 +406,42 @@ def _pie_data_labels(show_cat_name=False):
     )
 
 
-PIE_WIDTH_CM = 9
+PIE_WIDTH_CM = 10
 PIE_HEIGHT_CM = 8
+DEFAULT_COL_WIDTH_CHARS = 8.43
 
 
-def _write_pie_chart(ws, row0, col_off_emu, title, data_ref, cats_ref, colors, show_cat_name=False):
-    # Anclaje manual (offset en EMU desde la columna A) en vez de anclar por
-    # letra de columna: el ancho de columna A-F depende del contenido de las
-    # tablas (autosize), así que anclar por columna corría el riesgo de
-    # solapar o dejar un hueco enorme según los datos. Con un offset fijo en
-    # EMU, "Distribución por cuenta" queda siempre pegado a la derecha de
-    # "Distribución por tipo", sin importar cuán anchas terminen las columnas.
+def _col_width_emu(ws, col_idx_1based):
+    dim = ws.column_dimensions.get(get_column_letter(col_idx_1based))
+    width_chars = dim.width if dim and dim.width else DEFAULT_COL_WIDTH_CHARS
+    px = round(width_chars * 7) + 5
+    return px * 9525  # pixels_to_EMU
+
+
+def _emu_to_anchor(ws, target_emu):
+    # Convierte una posición horizontal absoluta (en EMU, medida desde el
+    # borde izquierdo de la columna A) a un par (columna, offset) válido.
+    #
+    # La primera versión de este anclaje ponía todo el offset dentro de la
+    # columna A (col=0, colOff=varios cm), asumiendo que Excel lo interpreta
+    # como una posición absoluta sin importar cuánto exceda el ancho real de
+    # esa columna. En Excel real ese colOff "desbordado" no se respetó y los
+    # dos gráficos terminaron superpuestos — spec de OOXML dice que colOff
+    # debería ser menor al ancho de esa columna. Acá se camina columna por
+    # columna (con su ancho real ya fijado por autosize) hasta encontrar en
+    # cuál cae la posición pedida, para que el offset final quede siempre
+    # dentro del ancho de esa columna.
+    col = 1
+    remaining = target_emu
+    while True:
+        w = _col_width_emu(ws, col)
+        if remaining < w:
+            return col - 1, round(remaining)  # -1: los anchors son 0-indexed
+        remaining -= w
+        col += 1
+
+
+def _write_pie_chart(ws, row0, col0, col_off_emu, title, data_ref, cats_ref, colors, show_cat_name=False):
     chart = PieChart()
     chart.title = chart_title(title)
     chart.height = PIE_HEIGHT_CM
@@ -441,19 +466,24 @@ def _write_pie_chart(ws, row0, col_off_emu, title, data_ref, cats_ref, colors, s
     ]
 
     chart.anchor = OneCellAnchor(
-        _from=AnchorMarker(col=0, colOff=col_off_emu, row=row0, rowOff=0),
+        _from=AnchorMarker(col=col0, colOff=col_off_emu, row=row0, rowOff=0),
         ext=XDRPositiveSize2D(cx=cm_to_EMU(PIE_WIDTH_CM), cy=cm_to_EMU(PIE_HEIGHT_CM)),
     )
     ws.add_chart(chart)
 
 
 def _write_distribucion_tipo(ws, row, resumen):
-    # Tabla "tipo" en A/B y tabla "cuenta" en D/E, una al lado de la otra en
-    # la misma franja de filas; los dos gráficos van debajo de su propia
-    # tabla (columna A y columna G respectivamente), también lado a lado.
-    # El gráfico de cuenta arranca en G en vez de D porque un pie de 9cm de
-    # ancho ocupa ~5-6 columnas: si arrancara pegado a la tabla de al lado
-    # se comería el gráfico de tipo.
+    # Tabla "tipo" en A/B y tabla "cuenta" en D/E, lado a lado en la misma
+    # franja de filas; los dos gráficos van debajo, también lado a lado.
+    #
+    # Los gráficos NO se crean acá: _emu_to_anchor necesita el ancho FINAL
+    # de las columnas para ubicar el segundo gráfico justo al lado del
+    # primero sin superponerlos, pero autosize() vuelve a recalcular esas
+    # mismas columnas más abajo (evolución mensual, y detalle de cuentas si
+    # se pidió) recorriendo la columna entera — así que cualquier ancho
+    # vigente en este punto todavía puede cambiar antes de terminar la hoja.
+    # Se devuelven las specs y quien arma la hoja los crea al final, cuando
+    # ya no va a haber más autosize() de por medio.
     grupos = [g for g in (resumen.get("grupos") or []) if float(g.get("subtotalUSD") or 0) > 0]
     cuentas_flat = [
         (c, g.get("tipo")) for g in (resumen.get("grupos") or []) for c in (g.get("cuentas") or [])
@@ -492,28 +522,66 @@ def _write_distribucion_tipo(ws, row, resumen):
     row += 2
 
     section_end_row = row
-
     row0 = row - 1  # anchors son 0-indexed
-    pie_gap_cm = 0.8
+
+    pending_charts = []
 
     if grupos:
         data = Reference(ws, min_col=2, min_row=header_row, max_row=last_tipo_row)
         cats = Reference(ws, min_col=1, min_row=first_data_row, max_row=last_tipo_row)
         colors = [TIPO_AHORRO_COLOR.get(g.get("tipo"), "5B9BE8") for g in grupos]
-        _write_pie_chart(ws, row0, 0, "Distribución por tipo", data, cats, colors)
+        pending_charts.append(
+            {
+                "row0": row0,
+                "title": "Distribución por tipo",
+                "data": data,
+                "cats": cats,
+                "colors": colors,
+                "show_cat_name": False,
+                "primary": True,
+            }
+        )
         section_end_row = max(section_end_row, row + 20)
 
     if cuentas_flat:
         data = Reference(ws, min_col=5, min_row=header_row, max_row=last_cuenta_row)
         cats = Reference(ws, min_col=4, min_row=first_data_row, max_row=last_cuenta_row)
         colors = [(c.get("color") or "5B9BE8").lstrip("#").upper() for c, _tipo in cuentas_flat]
-        col_off = cm_to_EMU(PIE_WIDTH_CM + pie_gap_cm) if grupos else 0
-        _write_pie_chart(
-            ws, row0, col_off, "Distribución por cuenta", data, cats, colors, show_cat_name=True
+        pending_charts.append(
+            {
+                "row0": row0,
+                "title": "Distribución por cuenta",
+                "data": data,
+                "cats": cats,
+                "colors": colors,
+                "show_cat_name": True,
+                "primary": False,
+            }
         )
         section_end_row = max(section_end_row, row + 20)
 
-    return section_end_row
+    return section_end_row, pending_charts
+
+
+def _place_distribucion_charts(ws, pending_charts):
+    pie_gap_cm = 1.5  # separación moderada entre los dos gráficos
+    for spec in pending_charts:
+        if spec["primary"]:
+            col0, col_off = 0, 0
+        else:
+            target_emu = cm_to_EMU(PIE_WIDTH_CM + pie_gap_cm)
+            col0, col_off = _emu_to_anchor(ws, target_emu)
+        _write_pie_chart(
+            ws,
+            spec["row0"],
+            col0,
+            col_off,
+            spec["title"],
+            spec["data"],
+            spec["cats"],
+            spec["colors"],
+            show_cat_name=spec["show_cat_name"],
+        )
 
 
 def _write_evolucion_ahorros(ws, row, evolucion, cuentas):
@@ -629,12 +697,17 @@ def _build_ahorros_sheet(wb, payload):
 
     row = 1
     row = _write_resumen_ahorros(ws, row, resumen)
-    row = _write_distribucion_tipo(ws, row, resumen)
+    row, pending_charts = _write_distribucion_tipo(ws, row, resumen)
     row = _write_evolucion_ahorros(ws, row, evolucion, cuentas)
 
     if incluir_detalle:
         for c in cuentas:
             row = _write_detalle_cuenta_ahorro(ws, row, c)
+
+    # Recién acá, con todas las tablas ya escritas y sin más autosize() por
+    # delante, se conoce el ancho final de las columnas: ver comentario en
+    # _write_distribucion_tipo.
+    _place_distribucion_charts(ws, pending_charts)
 
     return ws
 
