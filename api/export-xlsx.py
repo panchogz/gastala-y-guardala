@@ -125,13 +125,30 @@ def style_line_series(chart, items, color_of):
         )
 
 
+def _display_width(cell):
+    # len(str(valor_crudo)) no sirve para celdas numéricas con formato: un
+    # float como 149000.0 mide 8 caracteres como string, pero Excel lo
+    # muestra como "149.000 ARS" (11). Subestimar ese ancho es lo que
+    # termina mostrando ####### en las columnas con montos.
+    value = cell.value
+    fmt = cell.number_format or "General"
+    if isinstance(value, (int, float)) and fmt != "General":
+        if "ARS" in fmt:
+            return len(f"{value:,.0f} ARS")
+        if "USD" in fmt:
+            return len(f"{value:,.2f} USD")
+        if fmt == "0.0%":
+            return len(f"{value * 100:.1f}%")
+    return len(str(value))
+
+
 def autosize(ws, first_col, last_col, min_width=10, max_width=40):
     for col in range(first_col, last_col + 1):
         letter = get_column_letter(col)
         width = min_width
         for cell in ws[letter]:
             if cell.value is not None:
-                width = max(width, len(str(cell.value)) + 2)
+                width = max(width, _display_width(cell) + 2)
         ws.column_dimensions[letter].width = min(width, max_width)
 
 
@@ -339,6 +356,15 @@ def _build_tarjetas_sheet(wb, payload):
             )
             row += 2
             row = _write_detalle_tarjeta(ws, row, t)
+
+    # autosize() recorre la columna entera cada vez que se llama: las tablas
+    # de detalle (más angostas, más abajo) pueden terminar dejando más
+    # angosta una columna que en "Evolución mensual" tenía valores más
+    # anchos (ej. columna D = "Cuotas" en el detalle vs. "Total" en ARS en
+    # evolución), mostrando ####### en Excel. Se repite el autosize acá con
+    # el rango máximo usado en toda la hoja para que gane el ancho correcto.
+    max_col = max(total_col, 8) if incluir_detalle else total_col
+    autosize(ws, 1, max_col)
 
     return ws
 
