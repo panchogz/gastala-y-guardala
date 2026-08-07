@@ -231,6 +231,18 @@ def build_workbook(payload):
         chart.width = 22
         chart.height = 11
 
+        # Excel real (a diferencia de LibreOffice) oculta las etiquetas de eje
+        # cuando estas propiedades quedan en None: openpyxl las omite del XML
+        # y Excel no asume el default "visible" que sí asume LibreOffice.
+        chart.x_axis.delete = False
+        chart.y_axis.delete = False
+        chart.x_axis.majorTickMark = "out"
+        chart.y_axis.majorTickMark = "out"
+        chart.x_axis.minorTickMark = "none"
+        chart.y_axis.minorTickMark = "none"
+        chart.x_axis.tickLblPos = "nextTo"
+        chart.y_axis.tickLblPos = "nextTo"
+
         chart.y_axis.numFmt = "#,##0"
         chart.y_axis.scaling.min = 0
         chart.y_axis.majorGridlines = ChartLines(
