@@ -224,8 +224,11 @@ def build_workbook(payload):
     chart_anchor_row = row + 2
     if total_mensual and tarjetas:
         chart = LineChart()
-        chart.title = chart_title("Evolución mensual por tarjeta")
-        chart.y_axis.title = "ARS"
+        # El título rotado del eje Y ("ARS") se solapaba con los números del
+        # eje en Excel real (no en LibreOffice) por falta de margen propio;
+        # en vez de ajustar el layout manual del título, se saca del eje y
+        # se suma al título general del gráfico.
+        chart.title = chart_title("Evolución mensual por tarjeta (ARS)")
         chart.x_axis.title = "Mes"
         chart.style = 2
         chart.width = 22
