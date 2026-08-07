@@ -24,9 +24,12 @@ from openpyxl.chart.shapes import GraphicalProperties
 from openpyxl.chart.text import RichText, Text
 from openpyxl.chart.title import Title
 from openpyxl.drawing.line import LineProperties
+from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
 from openpyxl.drawing.text import CharacterProperties, Paragraph, ParagraphProperties, RegularTextRun
+from openpyxl.drawing.xdr import XDRPositiveSize2D
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.utils.units import cm_to_EMU
 
 MESES_ES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
 
@@ -403,11 +406,21 @@ def _pie_data_labels(show_cat_name=False):
     )
 
 
-def _write_pie_chart(ws, anchor_cell, title, data_ref, cats_ref, colors, show_cat_name=False):
+PIE_WIDTH_CM = 9
+PIE_HEIGHT_CM = 8
+
+
+def _write_pie_chart(ws, row0, col_off_emu, title, data_ref, cats_ref, colors, show_cat_name=False):
+    # Anclaje manual (offset en EMU desde la columna A) en vez de anclar por
+    # letra de columna: el ancho de columna A-F depende del contenido de las
+    # tablas (autosize), así que anclar por columna corría el riesgo de
+    # solapar o dejar un hueco enorme según los datos. Con un offset fijo en
+    # EMU, "Distribución por cuenta" queda siempre pegado a la derecha de
+    # "Distribución por tipo", sin importar cuán anchas terminen las columnas.
     chart = PieChart()
     chart.title = chart_title(title)
-    chart.height = 8
-    chart.width = 9
+    chart.height = PIE_HEIGHT_CM
+    chart.width = PIE_WIDTH_CM
     chart.dataLabels = _pie_data_labels(show_cat_name)
     chart.legend.overlay = False
     chart.legend.txPr = legend_text()
@@ -427,7 +440,11 @@ def _write_pie_chart(ws, anchor_cell, title, data_ref, cats_ref, colors, show_ca
         for i, color in enumerate(colors)
     ]
 
-    ws.add_chart(chart, anchor_cell)
+    chart.anchor = OneCellAnchor(
+        _from=AnchorMarker(col=0, colOff=col_off_emu, row=row0, rowOff=0),
+        ext=XDRPositiveSize2D(cx=cm_to_EMU(PIE_WIDTH_CM), cy=cm_to_EMU(PIE_HEIGHT_CM)),
+    )
+    ws.add_chart(chart)
 
 
 def _write_distribucion_tipo(ws, row, resumen):
@@ -476,19 +493,23 @@ def _write_distribucion_tipo(ws, row, resumen):
 
     section_end_row = row
 
+    row0 = row - 1  # anchors son 0-indexed
+    pie_gap_cm = 0.8
+
     if grupos:
         data = Reference(ws, min_col=2, min_row=header_row, max_row=last_tipo_row)
         cats = Reference(ws, min_col=1, min_row=first_data_row, max_row=last_tipo_row)
         colors = [TIPO_AHORRO_COLOR.get(g.get("tipo"), "5B9BE8") for g in grupos]
-        _write_pie_chart(ws, f"A{row}", "Distribución por tipo", data, cats, colors)
+        _write_pie_chart(ws, row0, 0, "Distribución por tipo", data, cats, colors)
         section_end_row = max(section_end_row, row + 20)
 
     if cuentas_flat:
         data = Reference(ws, min_col=5, min_row=header_row, max_row=last_cuenta_row)
         cats = Reference(ws, min_col=4, min_row=first_data_row, max_row=last_cuenta_row)
         colors = [(c.get("color") or "5B9BE8").lstrip("#").upper() for c, _tipo in cuentas_flat]
+        col_off = cm_to_EMU(PIE_WIDTH_CM + pie_gap_cm) if grupos else 0
         _write_pie_chart(
-            ws, f"G{row}", "Distribución por cuenta", data, cats, colors, show_cat_name=True
+            ws, row0, col_off, "Distribución por cuenta", data, cats, colors, show_cat_name=True
         )
         section_end_row = max(section_end_row, row + 20)
 
