@@ -8,3 +8,6 @@ VIT_KEYS.env
 .env
 .env.*
 !.env.example
+
+.vercel
+.env*
