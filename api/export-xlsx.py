@@ -13,6 +13,13 @@ from http.server import BaseHTTPRequestHandler
 
 from openpyxl import Workbook
 from openpyxl.chart import LineChart, Reference
+from openpyxl.chart.axis import ChartLines
+from openpyxl.chart.marker import Marker
+from openpyxl.chart.shapes import GraphicalProperties
+from openpyxl.chart.text import RichText, Text
+from openpyxl.chart.title import Title
+from openpyxl.drawing.line import LineProperties
+from openpyxl.drawing.text import CharacterProperties, Paragraph, ParagraphProperties, RegularTextRun
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
@@ -52,6 +59,18 @@ def style_total_row(ws, row, first_col, last_col):
         cell.font = TOTAL_FONT
         cell.fill = TOTAL_FILL
         cell.border = BORDER
+
+
+def chart_title(text, size=1400, bold=True):
+    cp = CharacterProperties(sz=size, b=bold)
+    run = RegularTextRun(rPr=cp, t=text)
+    para = Paragraph(pPr=ParagraphProperties(defRPr=cp), r=[run])
+    return Title(tx=Text(rich=RichText(p=[para])))
+
+
+def legend_text(size=1000):
+    cp = CharacterProperties(sz=size)
+    return RichText(p=[Paragraph(pPr=ParagraphProperties(defRPr=cp), endParaRPr=cp)])
 
 
 def autosize(ws, first_col, last_col, min_width=10, max_width=40):
@@ -205,12 +224,22 @@ def build_workbook(payload):
     chart_anchor_row = row + 2
     if total_mensual and tarjetas:
         chart = LineChart()
-        chart.title = "Evolución mensual por tarjeta"
+        chart.title = chart_title("Evolución mensual por tarjeta")
         chart.y_axis.title = "ARS"
         chart.x_axis.title = "Mes"
         chart.style = 2
         chart.width = 22
         chart.height = 11
+
+        chart.y_axis.numFmt = "#,##0"
+        chart.y_axis.scaling.min = 0
+        chart.y_axis.majorGridlines = ChartLines(
+            spPr=GraphicalProperties(ln=LineProperties(solidFill="E6E6E6", w=6350))
+        )
+        chart.x_axis.majorGridlines = None
+
+        chart.legend.overlay = False
+        chart.legend.txPr = legend_text()
 
         cats = Reference(ws, min_col=1, min_row=evo_first_data_row, max_row=evo_last_data_row)
         for i, _t in enumerate(tarjetas):
@@ -223,8 +252,12 @@ def build_workbook(payload):
             color = (t.get("color") or "5B9BE8").lstrip("#").upper()
             series = chart.series[i]
             series.graphicalProperties.line.solidFill = color
-            series.graphicalProperties.line.width = 20000
+            series.graphicalProperties.line.width = 28575
             series.smooth = False
+            series.marker = Marker(symbol="circle", size=6)
+            series.marker.graphicalProperties = GraphicalProperties(
+                solidFill=color, ln=LineProperties(solidFill=color)
+            )
 
         ws.add_chart(chart, f"A{chart_anchor_row}")
         row = chart_anchor_row + 24
