@@ -15,7 +15,7 @@ from datetime import datetime
 from http.server import BaseHTTPRequestHandler
 
 from openpyxl import Workbook
-from openpyxl.chart import DoughnutChart, LineChart, Reference
+from openpyxl.chart import LineChart, PieChart, Reference
 from openpyxl.chart.axis import ChartLines
 from openpyxl.chart.label import DataLabelList
 from openpyxl.chart.marker import Marker
@@ -385,50 +385,84 @@ def _write_resumen_ahorros(ws, row, resumen):
     return row + 2
 
 
+def _pie_data_labels():
+    return DataLabelList(
+        showPercent=True, showVal=False, showCatName=False, showSerName=False, showLegendKey=False
+    )
+
+
+def _write_pie_chart(ws, anchor_cell, title, data_ref, cats_ref, colors):
+    chart = PieChart()
+    chart.title = chart_title(title)
+    chart.height = 9
+    chart.width = 11
+    chart.dataLabels = _pie_data_labels()
+    chart.legend.overlay = False
+    chart.legend.txPr = legend_text()
+
+    chart.add_data(data_ref, titles_from_data=True)
+    chart.set_categories(cats_ref)
+
+    series = chart.series[0]
+    series.data_points = [
+        DataPoint(idx=i, spPr=GraphicalProperties(solidFill=color)) for i, color in enumerate(colors)
+    ]
+
+    ws.add_chart(chart, anchor_cell)
+
+
 def _write_distribucion_tipo(ws, row, resumen):
     grupos = [g for g in (resumen.get("grupos") or []) if float(g.get("subtotalUSD") or 0) > 0]
+    cuentas_flat = [
+        (c, g.get("tipo")) for g in (resumen.get("grupos") or []) for c in (g.get("cuentas") or [])
+        if float(c.get("totalUSD") or 0) > 0
+    ]
 
     ws.cell(row=row, column=1, value="Distribución por tipo").font = Font(bold=True, size=13)
+    ws.cell(row=row, column=4, value="Distribución por cuenta").font = Font(bold=True, size=13)
     row += 1
+
     header_row = row
     ws.cell(row=header_row, column=1, value="Tipo")
     ws.cell(row=header_row, column=2, value="Total USD")
     style_header_row(ws, header_row, 1, 2)
+    ws.cell(row=header_row, column=4, value="Cuenta")
+    ws.cell(row=header_row, column=5, value="Total USD")
+    style_header_row(ws, header_row, 4, 5)
     row += 1
+
     first_data_row = row
-    for g in grupos:
-        ws.cell(row=row, column=1, value=TIPO_AHORRO_LABEL.get(g.get("tipo"), g.get("tipo")))
-        ws.cell(row=row, column=2, value=float(g.get("subtotalUSD") or 0)).number_format = USD_FMT
-        row += 1
-    last_data_row = row - 1
+    for i in range(max(len(grupos), len(cuentas_flat))):
+        r = first_data_row + i
+        if i < len(grupos):
+            g = grupos[i]
+            ws.cell(row=r, column=1, value=TIPO_AHORRO_LABEL.get(g.get("tipo"), g.get("tipo")))
+            ws.cell(row=r, column=2, value=float(g.get("subtotalUSD") or 0)).number_format = USD_FMT
+        if i < len(cuentas_flat):
+            c, _tipo = cuentas_flat[i]
+            ws.cell(row=r, column=4, value=c.get("nombre") or "")
+            ws.cell(row=r, column=5, value=float(c.get("totalUSD") or 0)).number_format = USD_FMT
+    last_tipo_row = first_data_row + len(grupos) - 1
+    last_cuenta_row = first_data_row + len(cuentas_flat) - 1
+    row = first_data_row + max(len(grupos), len(cuentas_flat))
     autosize(ws, 1, 2)
+    autosize(ws, 4, 5)
 
     section_end_row = row + 2
 
     if grupos:
-        chart = DoughnutChart()
-        chart.title = chart_title("Distribución por tipo")
-        chart.height = 9
-        chart.width = 11
-        chart.dataLabels = DataLabelList(
-            showPercent=True, showVal=False, showCatName=False, showSerName=False, showLegendKey=False
-        )
-        chart.legend.overlay = False
-        chart.legend.txPr = legend_text()
-
-        data = Reference(ws, min_col=2, min_row=header_row, max_row=last_data_row)
-        cats = Reference(ws, min_col=1, min_row=first_data_row, max_row=last_data_row)
-        chart.add_data(data, titles_from_data=True)
-        chart.set_categories(cats)
-
-        series = chart.series[0]
-        series.data_points = [
-            DataPoint(idx=i, spPr=GraphicalProperties(solidFill=TIPO_AHORRO_COLOR.get(g.get("tipo"), "5B9BE8")))
-            for i, g in enumerate(grupos)
-        ]
-
-        ws.add_chart(chart, f"D{header_row}")
+        data = Reference(ws, min_col=2, min_row=header_row, max_row=last_tipo_row)
+        cats = Reference(ws, min_col=1, min_row=first_data_row, max_row=last_tipo_row)
+        colors = [TIPO_AHORRO_COLOR.get(g.get("tipo"), "5B9BE8") for g in grupos]
+        _write_pie_chart(ws, f"G{header_row}", "Distribución por tipo", data, cats, colors)
         section_end_row = max(section_end_row, header_row + 20)
+
+    if cuentas_flat:
+        data = Reference(ws, min_col=5, min_row=header_row, max_row=last_cuenta_row)
+        cats = Reference(ws, min_col=4, min_row=first_data_row, max_row=last_cuenta_row)
+        colors = [(c.get("color") or "5B9BE8").lstrip("#").upper() for c, _tipo in cuentas_flat]
+        _write_pie_chart(ws, f"G{header_row + 20}", "Distribución por cuenta", data, cats, colors)
+        section_end_row = max(section_end_row, header_row + 40)
 
     return section_end_row
 
@@ -469,8 +503,11 @@ def _write_evolucion_ahorros(ws, row, evolucion, cuentas):
     chart_anchor_row = row + 2
     if evolucion and cuentas_con_datos:
         chart = LineChart()
+        # El título del eje X ("Mes") se solapaba con las etiquetas jun-26/
+        # jul-26/... al haber 3+ meses (mismo problema que el título del eje
+        # Y en Tarjetas) — se saca porque además es redundante, las
+        # etiquetas del eje ya se entienden solas.
         chart.title = chart_title("Evolución mensual de ahorros (USD)")
-        chart.x_axis.title = "Mes"
         chart.style = 2
         chart.width = 22
         chart.height = 11
