@@ -10,6 +10,7 @@ import UnlockSetupPrompt from "./features/auth/UnlockSetupPrompt.jsx";
 import UnlockSettingsPanel from "./features/auth/UnlockSettingsPanel.jsx";
 import TarjetasView from "./features/tarjetas/TarjetasView.jsx";
 import AhorrosView from "./features/ahorros/AhorrosView.jsx";
+import ExportModal from "./components/ExportModal.jsx";
 
 // Umbral de inactividad en segundo plano a partir del cual, al volver, se
 // vuelve a pedir el desbloqueo rápido (no cada vez que se cambia de pestaña
@@ -32,6 +33,7 @@ export default function App() {
   const [locked, setLocked] = useState(false);
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
   const [showUnlockSettings, setShowUnlockSettings] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(null);
   // Se marca cuando el usuario completa un login OTP nuevo (no una sesión
   // restaurada al recargar), para forzar que el prompt de setup de
@@ -183,6 +185,14 @@ export default function App() {
           </button>
           <button
             className="view-toggle-btn"
+            onClick={() => setShowExportModal(true)}
+            title="Exportar a Excel"
+          >
+            <span aria-hidden="true">📊</span>
+            Exportar a Excel
+          </button>
+          <button
+            className="view-toggle-btn"
             onClick={() => setShowUnlockSettings((v) => !v)}
             title="Configurar desbloqueo rápido"
           >
@@ -239,6 +249,8 @@ export default function App() {
       </div>
 
       {tab === "tarjetas" ? <TarjetasView /> : <AhorrosView />}
+
+      {showExportModal && <ExportModal onClose={() => setShowExportModal(false)} />}
     </div>
   );
 }
