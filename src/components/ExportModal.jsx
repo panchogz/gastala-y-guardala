@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { downloadTarjetasExport } from "../lib/exportXlsx.js";
+import { downloadExport } from "../lib/exportXlsx.js";
 
 export default function ExportModal({ onClose }) {
-  const [incluirDetalle, setIncluirDetalle] = useState(false);
+  const [incluirDetalleTarjetas, setIncluirDetalleTarjetas] = useState(false);
+  const [incluirDetalleAhorros, setIncluirDetalleAhorros] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -10,7 +11,7 @@ export default function ExportModal({ onClose }) {
     setLoading(true);
     setError(null);
     try {
-      await downloadTarjetasExport(incluirDetalle);
+      await downloadExport(incluirDetalleTarjetas, incluirDetalleAhorros);
       onClose();
     } catch (e) {
       setError(e.message);
@@ -24,19 +25,31 @@ export default function ExportModal({ onClose }) {
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
         <h3 style={{ marginTop: 0 }}>Exportar a Excel</h3>
         <p className="empty" style={{ marginTop: 0 }}>
-          Por ahora exporta solo la solapa de Tarjetas (resumen del mes, evolución mensual
-          con gráfico, y detalle opcional). Ahorros se agrega en un paso aparte.
+          Exporta las solapas de Tarjetas (resumen del mes, evolución mensual con gráfico) y
+          Ahorros (resumen por tipo/cuenta, distribución y evolución mensual), con detalle
+          opcional en cada una.
         </p>
 
         <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13 }}>
           <input
             type="checkbox"
-            checked={incluirDetalle}
-            onChange={(e) => setIncluirDetalle(e.target.checked)}
+            checked={incluirDetalleTarjetas}
+            onChange={(e) => setIncluirDetalleTarjetas(e.target.checked)}
             style={{ marginTop: 2 }}
           />
           Incluir detalle completo de Tarjetas (compras en cuotas, gastos en dólares y
           recurrentes de cada tarjeta)
+        </label>
+
+        <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, marginTop: 10 }}>
+          <input
+            type="checkbox"
+            checked={incluirDetalleAhorros}
+            onChange={(e) => setIncluirDetalleAhorros(e.target.checked)}
+            style={{ marginTop: 2 }}
+          />
+          Incluir detalle completo de Ahorros (activos de cada cuenta con precio de compra,
+          precio actual y P&L)
         </label>
 
         {error && (

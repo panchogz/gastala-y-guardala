@@ -2,8 +2,11 @@
 que le manda el frontend. No toca Supabase ni ninguna otra fuente de datos:
 solo recibe datos ya cargados por el cliente y los convierte a Excel.
 
-Paso 1: solo la solapa "Tarjetas" (resumen del mes, evolución mensual con
-gráfico nativo, y detalle opcional de cuotas/dólares/recurrentes por tarjeta).
+Solapa "Tarjetas" (resumen del mes, evolución mensual con gráfico nativo, y
+detalle opcional de cuotas/dólares/recurrentes por tarjeta) y solapa
+"Ahorros" (resumen de 3 niveles activo→cuenta→tipo, distribución por tipo en
+anillo, evolución mensual con gráfico nativo, y detalle opcional de activos
+por cuenta).
 """
 
 import io
@@ -12,9 +15,11 @@ from datetime import datetime
 from http.server import BaseHTTPRequestHandler
 
 from openpyxl import Workbook
-from openpyxl.chart import LineChart, Reference
+from openpyxl.chart import DoughnutChart, LineChart, Reference
 from openpyxl.chart.axis import ChartLines
+from openpyxl.chart.label import DataLabelList
 from openpyxl.chart.marker import Marker
+from openpyxl.chart.series import DataPoint
 from openpyxl.chart.shapes import GraphicalProperties
 from openpyxl.chart.text import RichText, Text
 from openpyxl.chart.title import Title
@@ -24,6 +29,9 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 MESES_ES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
+
+TIPO_AHORRO_LABEL = {"bolsa": "Bolsa", "cripto": "Cripto", "usdt": "USD / Stable"}
+TIPO_AHORRO_COLOR = {"bolsa": "5B9BE8", "cripto": "35D0A0", "usdt": "E8A855"}
 
 HEADER_FILL = PatternFill("solid", fgColor="F2F2F2")
 HEADER_FONT = Font(bold=True)
@@ -71,6 +79,41 @@ def chart_title(text, size=1400, bold=True):
 def legend_text(size=1000):
     cp = CharacterProperties(sz=size)
     return RichText(p=[Paragraph(pPr=ParagraphProperties(defRPr=cp), endParaRPr=cp)])
+
+
+def style_line_chart_axes(chart):
+    # Mismos ajustes ya validados en el gráfico de Tarjetas: Excel real (a
+    # diferencia de LibreOffice) oculta las etiquetas de eje cuando estas
+    # propiedades quedan en None, porque openpyxl las omite del XML.
+    chart.x_axis.delete = False
+    chart.y_axis.delete = False
+    chart.x_axis.majorTickMark = "out"
+    chart.y_axis.majorTickMark = "out"
+    chart.x_axis.minorTickMark = "none"
+    chart.y_axis.minorTickMark = "none"
+    chart.x_axis.tickLblPos = "nextTo"
+    chart.y_axis.tickLblPos = "nextTo"
+    chart.y_axis.numFmt = "#,##0"
+    chart.y_axis.scaling.min = 0
+    chart.y_axis.majorGridlines = ChartLines(
+        spPr=GraphicalProperties(ln=LineProperties(solidFill="E6E6E6", w=6350))
+    )
+    chart.x_axis.majorGridlines = None
+    chart.legend.overlay = False
+    chart.legend.txPr = legend_text()
+
+
+def style_line_series(chart, items, color_of):
+    for i, item in enumerate(items):
+        color = (color_of(item) or "5B9BE8").lstrip("#").upper()
+        series = chart.series[i]
+        series.graphicalProperties.line.solidFill = color
+        series.graphicalProperties.line.width = 28575
+        series.smooth = False
+        series.marker = Marker(symbol="circle", size=6)
+        series.marker.graphicalProperties = GraphicalProperties(
+            solidFill=color, ln=LineProperties(solidFill=color)
+        )
 
 
 def autosize(ws, first_col, last_col, min_width=10, max_width=40):
@@ -159,12 +202,11 @@ def _write_detalle_tarjeta(ws, row, t):
     return row
 
 
-def build_workbook(payload):
+def _build_tarjetas_sheet(wb, payload):
     tarjetas = sorted(payload.get("tarjetas") or [], key=lambda t: t.get("orden") or 0)
     total_mensual = payload.get("totalMensual") or []
     incluir_detalle = bool(payload.get("incluirDetalleTarjetas"))
 
-    wb = Workbook()
     ws = wb.active
     ws.title = "Tarjetas"
     ws.sheet_view.showGridLines = False
@@ -287,6 +329,235 @@ def build_workbook(payload):
             row += 2
             row = _write_detalle_tarjeta(ws, row, t)
 
+    return ws
+
+
+# ---------------------------------------------------------------------------
+# Ahorros
+# ---------------------------------------------------------------------------
+
+
+def _write_resumen_ahorros(ws, row, resumen):
+    ws.cell(row=row, column=1, value="Resumen general de ahorros").font = Font(bold=True, size=13)
+    row += 1
+    headers = ["Activo", "USD", "ARS", "% cuenta", "% total"]
+    for i, h in enumerate(headers):
+        ws.cell(row=row, column=1 + i, value=h)
+    style_header_row(ws, row, 1, len(headers))
+    row += 1
+
+    grupos = resumen.get("grupos") or []
+    for g in grupos:
+        cuentas = g.get("cuentas") or []
+        for c in cuentas:
+            for a in c.get("activos") or []:
+                ws.cell(row=row, column=1, value=a.get("label") or "")
+                ws.cell(row=row, column=2, value=float(a.get("usd") or 0)).number_format = USD_FMT
+                ws.cell(row=row, column=3, value=float(a.get("ars") or 0)).number_format = ARS_FMT
+                ws.cell(row=row, column=4, value=float(a.get("pctCuenta") or 0)).number_format = "0.0%"
+                ws.cell(row=row, column=5, value=float(a.get("pctTotal") or 0)).number_format = "0.0%"
+                row += 1
+            if c.get("showSubtotal"):
+                ws.cell(row=row, column=1, value=f"Subtotal {c.get('nombre') or ''}")
+                ws.cell(row=row, column=2, value=float(c.get("totalUSD") or 0)).number_format = USD_FMT
+                ws.cell(row=row, column=3, value=float(c.get("totalARS") or 0)).number_format = ARS_FMT
+                ws.cell(row=row, column=4, value="—")
+                ws.cell(row=row, column=5, value=float(c.get("pctTotal") or 0)).number_format = "0.0%"
+                style_total_row(ws, row, 1, 5)
+                row += 1
+        ws.cell(row=row, column=1, value=f"Subtotal {TIPO_AHORRO_LABEL.get(g.get('tipo'), g.get('tipo'))}")
+        ws.cell(row=row, column=2, value=float(g.get("subtotalUSD") or 0)).number_format = USD_FMT
+        ws.cell(row=row, column=3, value=float(g.get("subtotalARS") or 0)).number_format = ARS_FMT
+        ws.cell(row=row, column=4, value="—")
+        ws.cell(row=row, column=5, value=float(g.get("pctTotal") or 0)).number_format = "0.0%"
+        style_total_row(ws, row, 1, 5)
+        row += 1
+
+    ws.cell(row=row, column=1, value="TOTAL")
+    ws.cell(row=row, column=2, value=float(resumen.get("totalUSD") or 0)).number_format = USD_FMT
+    ws.cell(row=row, column=3, value=float(resumen.get("totalARS") or 0)).number_format = ARS_FMT
+    ws.cell(row=row, column=4, value="—")
+    ws.cell(row=row, column=5, value=1.0).number_format = "0.0%"
+    style_total_row(ws, row, 1, 5)
+    row += 1
+
+    autosize(ws, 1, len(headers))
+    return row + 2
+
+
+def _write_distribucion_tipo(ws, row, resumen):
+    grupos = [g for g in (resumen.get("grupos") or []) if float(g.get("subtotalUSD") or 0) > 0]
+
+    ws.cell(row=row, column=1, value="Distribución por tipo").font = Font(bold=True, size=13)
+    row += 1
+    header_row = row
+    ws.cell(row=header_row, column=1, value="Tipo")
+    ws.cell(row=header_row, column=2, value="Total USD")
+    style_header_row(ws, header_row, 1, 2)
+    row += 1
+    first_data_row = row
+    for g in grupos:
+        ws.cell(row=row, column=1, value=TIPO_AHORRO_LABEL.get(g.get("tipo"), g.get("tipo")))
+        ws.cell(row=row, column=2, value=float(g.get("subtotalUSD") or 0)).number_format = USD_FMT
+        row += 1
+    last_data_row = row - 1
+    autosize(ws, 1, 2)
+
+    section_end_row = row + 2
+
+    if grupos:
+        chart = DoughnutChart()
+        chart.title = chart_title("Distribución por tipo")
+        chart.height = 9
+        chart.width = 11
+        chart.dataLabels = DataLabelList(
+            showPercent=True, showVal=False, showCatName=False, showSerName=False, showLegendKey=False
+        )
+        chart.legend.overlay = False
+        chart.legend.txPr = legend_text()
+
+        data = Reference(ws, min_col=2, min_row=header_row, max_row=last_data_row)
+        cats = Reference(ws, min_col=1, min_row=first_data_row, max_row=last_data_row)
+        chart.add_data(data, titles_from_data=True)
+        chart.set_categories(cats)
+
+        series = chart.series[0]
+        series.data_points = [
+            DataPoint(idx=i, spPr=GraphicalProperties(solidFill=TIPO_AHORRO_COLOR.get(g.get("tipo"), "5B9BE8")))
+            for i, g in enumerate(grupos)
+        ]
+
+        ws.add_chart(chart, f"D{header_row}")
+        section_end_row = max(section_end_row, header_row + 20)
+
+    return section_end_row
+
+
+def _write_evolucion_ahorros(ws, row, evolucion, cuentas):
+    ws.cell(row=row, column=1, value="Evolución mensual de ahorros (USD)").font = Font(bold=True, size=13)
+    row += 1
+
+    cuentas_con_datos = [
+        c
+        for c in cuentas
+        if any((m.get("porCuenta") or {}).get(c.get("id")) is not None for m in evolucion)
+    ]
+
+    header_row = row
+    ws.cell(row=row, column=1, value="Mes")
+    for i, c in enumerate(cuentas_con_datos):
+        ws.cell(row=row, column=2 + i, value=c.get("nombre") or "")
+    total_col = 2 + len(cuentas_con_datos)
+    ws.cell(row=row, column=total_col, value="Total USD")
+    style_header_row(ws, row, 1, total_col)
+    row += 1
+
+    first_data_row = row
+    for m in evolucion:
+        ws.cell(row=row, column=1, value=mes_label(m.get("mes", "")))
+        por_cuenta = m.get("porCuenta") or {}
+        for i, c in enumerate(cuentas_con_datos):
+            val = por_cuenta.get(c.get("id"))
+            cell = ws.cell(row=row, column=2 + i, value=float(val) if val is not None else None)
+            cell.number_format = USD_FMT
+        ws.cell(row=row, column=total_col, value=float(m.get("total", 0) or 0)).number_format = USD_FMT
+        row += 1
+    last_data_row = row - 1
+
+    autosize(ws, 1, total_col)
+
+    chart_anchor_row = row + 2
+    if evolucion and cuentas_con_datos:
+        chart = LineChart()
+        chart.title = chart_title("Evolución mensual de ahorros (USD)")
+        chart.x_axis.title = "Mes"
+        chart.style = 2
+        chart.width = 22
+        chart.height = 11
+
+        style_line_chart_axes(chart)
+
+        cats = Reference(ws, min_col=1, min_row=first_data_row, max_row=last_data_row)
+        for i, _c in enumerate(cuentas_con_datos):
+            col = 2 + i
+            data = Reference(ws, min_col=col, min_row=header_row, max_row=last_data_row)
+            chart.add_data(data, titles_from_data=True)
+        chart.set_categories(cats)
+
+        style_line_series(chart, cuentas_con_datos, lambda c: c.get("color"))
+
+        ws.add_chart(chart, f"A{chart_anchor_row}")
+        row = chart_anchor_row + 24
+    else:
+        row += 2
+
+    return row
+
+
+def _write_detalle_cuenta_ahorro(ws, row, cuenta):
+    nombre = cuenta.get("nombre") or ""
+    tipo = cuenta.get("tipo")
+    activos = cuenta.get("activos") or []
+
+    if tipo == "usdt":
+        headers = ["Activo / Plataforma", "Costo total (USD)", "Valor actual (USD)", "Rendimiento (USD)"]
+        formats = [None, USD_FMT, USD_FMT, USD_FMT]
+        data_rows = [
+            [
+                a.get("label"),
+                float(a.get("costoTotal") or 0),
+                float(a.get("valorActual") or 0),
+                float(a["rendimiento"]) if a.get("rendimiento") is not None else "—",
+            ]
+            for a in activos
+        ]
+    else:
+        moneda_fmt = ARS_FMT if tipo == "bolsa" else USD_FMT
+        headers = ["Activo", "Cantidad", "Precio compra", "Precio actual", "Valor actual", "P&L", "P&L %"]
+        formats = [None, None, moneda_fmt, moneda_fmt, moneda_fmt, moneda_fmt, "0.0%"]
+        data_rows = [
+            [
+                a.get("label"),
+                float(a.get("cantidad") or 0),
+                float(a.get("precioCompra") or 0),
+                float(a.get("precioActual") or 0),
+                float(a.get("valorActual") or 0),
+                float(a["pl"]) if a.get("pl") is not None else "—",
+                float(a["plPct"]) if a.get("plPct") is not None else "—",
+            ]
+            for a in activos
+        ]
+
+    return _write_table(ws, row, f"{nombre} — Detalle de activos", headers, formats, data_rows)
+
+
+def _build_ahorros_sheet(wb, payload):
+    ahorros = payload.get("ahorros") or {}
+    resumen = ahorros.get("resumen") or {"grupos": [], "totalUSD": 0, "totalARS": 0}
+    evolucion = ahorros.get("evolucionMensual") or []
+    cuentas = ahorros.get("cuentas") or []
+    incluir_detalle = bool(payload.get("incluirDetalleAhorros"))
+
+    ws = wb.create_sheet("Ahorros")
+    ws.sheet_view.showGridLines = False
+
+    row = 1
+    row = _write_resumen_ahorros(ws, row, resumen)
+    row = _write_distribucion_tipo(ws, row, resumen)
+    row = _write_evolucion_ahorros(ws, row, evolucion, cuentas)
+
+    if incluir_detalle:
+        for c in cuentas:
+            row = _write_detalle_cuenta_ahorro(ws, row, c)
+
+    return ws
+
+
+def build_workbook(payload):
+    wb = Workbook()
+    _build_tarjetas_sheet(wb, payload)
+    if payload.get("ahorros"):
+        _build_ahorros_sheet(wb, payload)
     return wb
 
 

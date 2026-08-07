@@ -1,4 +1,5 @@
 import * as api from "../features/tarjetas/api.js";
+import * as ahorrosApi from "../features/ahorros/api.js";
 import { fullMonthsBetween, currentMonthKey } from "./helpers.js";
 
 // El export no reusa el estado ya cargado en TarjetasView/CardPanel (queda
@@ -87,8 +88,190 @@ export async function buildTarjetasExportPayload(incluirDetalleTarjetas) {
   return { tarjetas, totalMensual, incluirDetalleTarjetas };
 }
 
-export async function downloadTarjetasExport(incluirDetalleTarjetas) {
-  const payload = await buildTarjetasExportPayload(incluirDetalleTarjetas);
+// ---------------------------------------------------------------------------
+// Ahorros — misma idea que Tarjetas arriba: se pide todo de nuevo a la API en
+// vez de reusar el estado de AhorrosView, y se replica acá la misma lógica de
+// cálculo por tipo (bolsa/cripto/usdt) para que el resumen de 3 niveles del
+// Excel quede idéntico al que se ve en la app.
+// ---------------------------------------------------------------------------
+
+const TIPO_ORDEN_AHORRO = { bolsa: 0, cripto: 1, usdt: 2 };
+const porTipoYNombreAhorro = (a, b) =>
+  TIPO_ORDEN_AHORRO[a.tipo] - TIPO_ORDEN_AHORRO[b.tipo] || (a.nombre || "").localeCompare(b.nombre || "", "es");
+
+function apiForTipoAhorro(tipo) {
+  if (tipo === "bolsa") return ahorrosApi.bolsaApi;
+  if (tipo === "cripto") return ahorrosApi.criptoApi;
+  return ahorrosApi.usdtApi;
+}
+
+function activoLabel(cuenta, r) {
+  return (cuenta.tipo === "bolsa" ? r.ticker : r.activo) || "—";
+}
+
+function computeBolsaAhorro(r, cotizacion) {
+  const cantidad = Number(r.cantidad) || 0;
+  const precioCompra = Number(r.precio_compra_ars) || 0;
+  const precioActual = Number(r.precio_actual_ars) || 0;
+  const costoTotal = precioCompra ? cantidad * precioCompra : null;
+  const valorActual = cantidad * precioActual;
+  const pl = costoTotal !== null ? valorActual - costoTotal : null;
+  const plPct = costoTotal ? pl / costoTotal : null;
+  const usd = cotizacion ? valorActual / Number(cotizacion) : 0;
+  return { cantidad, precioCompra, precioActual, valorActual, pl, plPct, usd, ars: valorActual };
+}
+
+function computeCriptoAhorro(r, cotizacionUsdt) {
+  const cantidad = Number(r.cantidad) || 0;
+  const precioCompra = Number(r.precio_compra_usd) || 0;
+  const precioActual = Number(r.precio_actual_usd) || 0;
+  const costoTotal = precioCompra ? cantidad * precioCompra : null;
+  const valorActual = cantidad * precioActual;
+  const pl = costoTotal !== null ? valorActual - costoTotal : null;
+  const plPct = costoTotal ? pl / costoTotal : null;
+  const ars = valorActual * (Number(cotizacionUsdt) || 0);
+  return { cantidad, precioCompra, precioActual, valorActual, pl, plPct, usd: valorActual, ars };
+}
+
+function computeUsdtAhorro(r, cotizacionUsdt) {
+  const costoTotal = Number(r.costo_total_usd) || 0;
+  const valorActual = Number(r.valor_actual_usd) || 0;
+  const rendimiento = costoTotal ? valorActual - costoTotal : null;
+  const ars = valorActual * (Number(cotizacionUsdt) || 0);
+  return { costoTotal, valorActual, rendimiento, usd: valorActual, ars };
+}
+
+function cuentaCompute(cuenta, rows, cotizacion, cotizacionUsdt) {
+  const compute =
+    cuenta.tipo === "bolsa"
+      ? (r) => computeBolsaAhorro(r, cotizacion)
+      : cuenta.tipo === "cripto"
+      ? (r) => computeCriptoAhorro(r, cotizacionUsdt)
+      : (r) => computeUsdtAhorro(r, cotizacionUsdt);
+  const enriched = rows.map((r) => ({ ...r, ...compute(r) }));
+  return {
+    enriched,
+    usd: enriched.reduce((a, r) => a + r.usd, 0),
+    ars: enriched.reduce((a, r) => a + r.ars, 0),
+  };
+}
+
+export async function buildAhorrosExportPayload(incluirDetalleAhorros) {
+  const [cot, cuentasRows, evolucionRows] = await Promise.all([
+    ahorrosApi.fetchCotizacion(),
+    ahorrosApi.fetchCuentasAhorro(),
+    ahorrosApi.fetchEvolucionCuentas(),
+  ]);
+  const cotizacion = Number(cot?.dolar_ccl_mep) || 1200;
+  const cotizacionUsdt = Number(cot?.dolar_usdt) || 1200;
+
+  const cuentasOrdenadas = [...cuentasRows].sort(porTipoYNombreAhorro);
+  const activosPorCuenta = Object.fromEntries(
+    await Promise.all(
+      cuentasOrdenadas.map(async (c) => [c.id, await apiForTipoAhorro(c.tipo).fetchAll(c.id)])
+    )
+  );
+
+  const cuentaTotales = Object.fromEntries(
+    cuentasOrdenadas.map((c) => [
+      c.id,
+      cuentaCompute(c, activosPorCuenta[c.id] || [], cotizacion, cotizacionUsdt),
+    ])
+  );
+  const totalUSD = Object.values(cuentaTotales).reduce((a, t) => a + t.usd, 0);
+  const totalARS = Object.values(cuentaTotales).reduce((a, t) => a + t.ars, 0);
+
+  const gruposPorTipo = ["bolsa", "cripto", "usdt"]
+    .map((tipo) => cuentasOrdenadas.filter((c) => c.tipo === tipo))
+    .filter((lista) => lista.length > 0);
+
+  const grupos = gruposPorTipo.map((lista) => {
+    const subtotalUSD = lista.reduce((a, c) => a + cuentaTotales[c.id].usd, 0);
+    const subtotalARS = lista.reduce((a, c) => a + cuentaTotales[c.id].ars, 0);
+    return {
+      tipo: lista[0].tipo,
+      subtotalUSD,
+      subtotalARS,
+      pctTotal: totalUSD ? subtotalUSD / totalUSD : 0,
+      cuentas: lista.map((c) => {
+        const { enriched, usd, ars } = cuentaTotales[c.id];
+        const activos = [...enriched]
+          .map((a) => ({
+            label: activoLabel(c, a),
+            usd: a.usd,
+            ars: a.ars,
+            pctCuenta: usd ? a.usd / usd : 0,
+            pctTotal: totalUSD ? a.usd / totalUSD : 0,
+          }))
+          .sort((a, b) => a.label.localeCompare(b.label, "es"));
+        return {
+          nombre: c.nombre,
+          color: c.color,
+          totalUSD: usd,
+          totalARS: ars,
+          pctTotal: totalUSD ? usd / totalUSD : 0,
+          showSubtotal: lista.length > 1,
+          activos,
+        };
+      }),
+    };
+  });
+
+  const mesesEvolucion = [...new Set(evolucionRows.map((r) => r.mes))].sort();
+  const cuentaIdsEnEvolucion = [...new Set(evolucionRows.map((r) => r.cuenta_id))];
+  const evolucionMensual = mesesEvolucion.map((mes) => {
+    const porCuenta = {};
+    let total = 0;
+    for (const id of cuentaIdsEnEvolucion) {
+      const row = evolucionRows.find((r) => r.mes === mes && r.cuenta_id === id);
+      if (row) {
+        const val = Number(row.valor_usd) || 0;
+        porCuenta[id] = val;
+        total += val;
+      }
+    }
+    return { mes: mes.slice(0, 7), porCuenta, total };
+  });
+
+  const cuentas = cuentasOrdenadas.map((c) => {
+    const { enriched } = cuentaTotales[c.id];
+    const activos = incluirDetalleAhorros
+      ? [...enriched]
+          .map((a) =>
+            c.tipo === "usdt"
+              ? {
+                  label: activoLabel(c, a),
+                  costoTotal: a.costoTotal,
+                  valorActual: a.valorActual,
+                  rendimiento: a.rendimiento,
+                }
+              : {
+                  label: activoLabel(c, a),
+                  cantidad: a.cantidad,
+                  precioCompra: a.precioCompra,
+                  precioActual: a.precioActual,
+                  valorActual: a.valorActual,
+                  pl: a.pl,
+                  plPct: a.plPct,
+                }
+          )
+          .sort((a, b) => a.label.localeCompare(b.label, "es"))
+      : [];
+    return { id: c.id, nombre: c.nombre, tipo: c.tipo, color: c.color, activos };
+  });
+
+  return {
+    ahorros: { resumen: { grupos, totalUSD, totalARS }, evolucionMensual, cuentas },
+    incluirDetalleAhorros: !!incluirDetalleAhorros,
+  };
+}
+
+export async function downloadExport(incluirDetalleTarjetas, incluirDetalleAhorros) {
+  const [tarjetasPayload, ahorrosPayload] = await Promise.all([
+    buildTarjetasExportPayload(incluirDetalleTarjetas),
+    buildAhorrosExportPayload(incluirDetalleAhorros),
+  ]);
+  const payload = { ...tarjetasPayload, ...ahorrosPayload };
 
   const res = await fetch("/api/export-xlsx", {
     method: "POST",
