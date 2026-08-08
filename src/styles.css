@@ -50,10 +50,8 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
 .login-form { display: flex; flex-direction: column; gap: 12px; margin-top: 18px; }
 .login-turnstile { align-self: center; }
 .login-form input {
-  /* font-size >= 16px: por debajo de eso iOS Safari hace zoom automático al
-     enfocar el input y no vuelve a 100% al desenfocar. */
   background: #12161B; border: 1px solid #2A313B; color: #E8E6E1;
-  padding: 10px 12px; border-radius: 8px; font-size: 16px; text-align: center;
+  padding: 10px 12px; border-radius: 8px; font-size: 14px; text-align: center;
 }
 .login-sent {
   margin-top: 0; margin-bottom: 4px; font-size: 14px; color: #E8E6E1;
@@ -89,9 +87,8 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
   display: flex; flex-direction: column; font-size: 11px; color: #8B93A1; gap: 4px;
 }
 .head-inputs input, .cotiz-input input {
-  /* font-size >= 16px por el mismo motivo que .login-form input, ver arriba. */
   background: #12161B; border: 1px solid #2A313B; color: #E8E6E1;
-  padding: 6px 8px; border-radius: 6px; font-size: 16px; width: 120px; max-width: 100%;
+  padding: 6px 8px; border-radius: 6px; font-size: 13px; width: 120px; max-width: 100%;
 }
 .stat-row { display: flex; gap: 24px; margin: 10px 0 16px 0; flex-wrap: wrap; }
 
@@ -111,12 +108,9 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
 .tbl th { text-align: left; color: #8B93A1; font-weight: 600; font-size: 11px; text-transform: uppercase; padding: 6px 6px; border-bottom: 1px solid #2A313B; white-space: nowrap; }
 .tbl td { padding: 5px 6px; border-bottom: 1px solid #21262E; font-variant-numeric: tabular-nums; }
 .cell-input {
-  /* font-size >= 16px por el mismo motivo que .login-form input, ver arriba.
-     La altura se ajusta un poco (26px -> 30px) para que el texto a 16px entre
-     cómodo; antes estaba pensada para 13px. */
   background: #12161B; border: 1px solid #2A313B; color: #5B9BE8;
-  padding: 4px 6px; border-radius: 5px; width: 100%; min-width: 70px; font-size: 16px;
-  height: 30px; line-height: 1.2; font-family: inherit; -webkit-appearance: none; appearance: none;
+  padding: 4px 6px; border-radius: 5px; width: 100%; min-width: 70px; font-size: 13px;
+  height: 26px; line-height: 1.2; font-family: inherit; -webkit-appearance: none; appearance: none;
 }
 
 /* Los selectores nativos de fecha (iOS/Android) ignoran width:100% e imponen su propio
@@ -134,7 +128,7 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
 .tbl-dense { font-size: 12px; }
 .tbl-dense th { padding: 6px 4px; font-size: 10px; }
 .tbl-dense td { padding: 4px 4px; }
-.tbl-dense .cell-input { padding: 3px 4px; min-width: 56px; font-size: 16px; height: 28px; }
+.tbl-dense .cell-input { padding: 3px 4px; min-width: 56px; font-size: 12px; height: 24px; }
 .tbl-dense .cell-input[type="date"] { width: 112px; min-width: 112px; max-width: 112px; }
 .cell-computed { color: #E8E6E1; }
 .tbl-total td { font-weight: 700; border-top: 1px solid #2A313B; border-bottom: none; padding-top: 8px; }
@@ -169,11 +163,11 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
 .manage-cards-add { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; border-top: 1px solid #2A313B; padding-top: 14px; }
 .manage-cards-add input[type="text"] {
   background: #12161B; border: 1px solid #2A313B; color: #E8E6E1;
-  padding: 6px 8px; border-radius: 6px; font-size: 16px; min-width: 180px; flex: 1;
+  padding: 6px 8px; border-radius: 6px; font-size: 13px; min-width: 180px; flex: 1;
 }
 .manage-cards-add select {
   background: #12161B; border: 1px solid #2A313B; color: #E8E6E1;
-  padding: 6px 8px; border-radius: 6px; font-size: 16px;
+  padding: 6px 8px; border-radius: 6px; font-size: 13px;
 }
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(0, 0, 0, 0.55);
@@ -186,7 +180,7 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
 .manage-cards-edit { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1; }
 .manage-cards-edit input[type="text"] {
   background: #12161B; border: 1px solid #2A313B; color: #E8E6E1;
-  padding: 5px 8px; border-radius: 6px; font-size: 16px; min-width: 140px; flex: 1;
+  padding: 5px 8px; border-radius: 6px; font-size: 13px; min-width: 140px; flex: 1;
 }
 .color-palette { display: flex; gap: 6px; }
 .color-swatch {
@@ -207,9 +201,7 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
   .card-head { margin-bottom: 8px; }
   .head-inputs { gap: 10px; }
   .head-inputs label, .cotiz-input { font-size: 10px; }
-  /* padding más chico para compensar visualmente, pero el font-size del input
-     se mantiene en 16px (no baja del umbral que dispara el zoom de iOS). */
-  .head-inputs input, .cotiz-input input { padding: 5px 6px; font-size: 16px; }
+  .head-inputs input, .cotiz-input input { padding: 5px 6px; font-size: 12px; }
 
   .stat-row { gap: 16px; margin: 8px 0 12px 0; }
   .stat-label { font-size: 10px; }
