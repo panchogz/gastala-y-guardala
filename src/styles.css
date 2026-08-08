@@ -146,16 +146,7 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
 .stat-value { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .subhead { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #8B93A1; margin: 10px 0 8px 0; font-weight: 700; }
 .tbl-wrap { overflow-x: auto; max-width: 100%; }
-/* min-width en vez de width: con width:100% fijo, la tabla nunca puede superar
-   el ancho de .tbl-wrap, así que overflow-x:auto ahí nunca se dispara (nada
-   desborda) — en cambio el auto-layout aprieta columnas para que todo entre
-   en el 100%, pudiendo aplastar columnas sin min-width propio hasta casi
-   desaparecer cuando otras celdas sí lo tienen (ej. los min-width de
-   .cell-input). Con min-width:100% + width:auto, la tabla sigue ocupando
-   todo el ancho disponible cuando el contenido entra, pero puede crecer más
-   allá del 100% cuando no entra — ahí sí aparece el scroll horizontal de
-   .tbl-wrap en vez de comprimir columnas. */
-.tbl { width: auto; min-width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
 .tbl th { text-align: left; color: #8B93A1; font-weight: 600; font-size: 11px; text-transform: uppercase; padding: 6px 6px; border-bottom: 1px solid #2A313B; white-space: nowrap; }
 .tbl td { padding: 5px 6px; border-bottom: 1px solid #21262E; font-variant-numeric: tabular-nums; }
 .cell-input {
