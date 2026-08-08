@@ -413,7 +413,7 @@ export default function AhorrosView() {
               onUpdate={(id, patch) => api.usdtApi.update(id, patch)}
               onDelete={(id) => api.usdtApi.remove(id)}
               columns={[
-                { key: "activo", label: "Activo / plataforma", editable: true },
+                { key: "activo", label: "Activo / plataforma", editable: true, inputStyle: { minWidth: 170 } },
                 { key: "costo_total_usd", label: "Costo total (USD)", editable: true, type: "number", align: "right" },
                 { key: "valor_actual_usd", label: "Valor actual (USD)", editable: true, type: "number", align: "right" },
                 { key: "rendimiento", label: "Rendimiento", align: "right", format: (v) => (v === null ? "—" : fmtUSD(v)) },

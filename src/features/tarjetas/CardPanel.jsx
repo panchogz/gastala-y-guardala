@@ -319,6 +319,7 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
               value={r.comercio || ""}
               onChange={(v) => updateCuotaLocal(r.id, "comercio", v)}
               onBlur={() => saveCuotaRow(r)}
+              inputStyle={{ minWidth: 110 }}
             />
             <Cell
               editable
@@ -327,6 +328,7 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
               value={r.monto}
               onChange={(v) => updateCuotaLocal(r.id, "monto", v)}
               onBlur={() => saveCuotaRow(r)}
+              inputStyle={{ minWidth: 90 }}
             />
             <Cell
               editable

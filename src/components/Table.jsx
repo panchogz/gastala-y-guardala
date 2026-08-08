@@ -19,7 +19,7 @@ export function Table({ columns, children, footer, dense }) {
   );
 }
 
-export function Cell({ editable, value, onChange, onBlur, type = "text", align, format }) {
+export function Cell({ editable, value, onChange, onBlur, type = "text", align, format, inputStyle }) {
   if (!editable) {
     return (
       <td style={{ textAlign: align || "left" }} className="cell-computed">
@@ -35,6 +35,7 @@ export function Cell({ editable, value, onChange, onBlur, type = "text", align, 
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
+        style={inputStyle}
       />
     </td>
   );
