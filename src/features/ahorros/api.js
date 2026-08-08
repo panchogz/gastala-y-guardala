@@ -37,9 +37,9 @@ export async function fetchCuentasAhorro() {
   return data;
 }
 
-export async function insertCuentaAhorro({ tipo, nombre, color, orden }) {
+export async function insertCuentaAhorro({ tipo, nombre, color, orden, moneda }) {
   const user_id = await getUserId();
-  return queuedInsert("cuentas_ahorro", { tipo, nombre, color, orden, user_id });
+  return queuedInsert("cuentas_ahorro", { tipo, nombre, color, orden, moneda, user_id });
 }
 
 export async function updateCuentaAhorro(id, patch) {

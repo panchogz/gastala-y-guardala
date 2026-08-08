@@ -11,3 +11,4 @@ VIT_KEYS.env
 
 .vercel
 .env*
+spread_polling_data.csv

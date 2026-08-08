@@ -692,7 +692,8 @@ def _write_detalle_cuenta_ahorro(ws, row, cuenta):
             for a in activos
         ]
     else:
-        moneda_fmt = ARS_FMT if tipo == "bolsa" else USD_FMT
+        moneda = cuenta.get("moneda") or ("ARS" if tipo == "bolsa" else "USD")
+        moneda_fmt = ARS_FMT if moneda == "ARS" else USD_FMT
         headers = ["Activo", "Cantidad", "Precio compra", "Precio actual", "Valor actual", "P&L", "P&L %"]
         formats = [None, None, moneda_fmt, moneda_fmt, moneda_fmt, moneda_fmt, "0.0%"]
         data_rows = [

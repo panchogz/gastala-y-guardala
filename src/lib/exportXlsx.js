@@ -109,28 +109,42 @@ function activoLabel(cuenta, r) {
   return (cuenta.tipo === "bolsa" ? r.ticker : r.activo) || "—";
 }
 
-function computeBolsaAhorro(r, cotizacion) {
+function computeBolsaAhorro(r, cuenta, cotizacion) {
   const cantidad = Number(r.cantidad) || 0;
-  const precioCompra = Number(r.precio_compra_ars) || 0;
-  const precioActual = Number(r.precio_actual_ars) || 0;
+  const precioCompra = Number(r.precio_compra) || 0;
+  const precioActual = Number(r.precio_actual) || 0;
   const costoTotal = precioCompra ? cantidad * precioCompra : null;
   const valorActual = cantidad * precioActual;
   const pl = costoTotal !== null ? valorActual - costoTotal : null;
   const plPct = costoTotal ? pl / costoTotal : null;
-  const usd = cotizacion ? valorActual / Number(cotizacion) : 0;
-  return { cantidad, precioCompra, precioActual, valorActual, pl, plPct, usd, ars: valorActual };
+  let usd, ars;
+  if (cuenta.moneda === "USD") {
+    usd = valorActual;
+    ars = valorActual * (Number(cotizacion) || 0);
+  } else {
+    ars = valorActual;
+    usd = cotizacion ? valorActual / Number(cotizacion) : 0;
+  }
+  return { cantidad, precioCompra, precioActual, valorActual, pl, plPct, usd, ars };
 }
 
-function computeCriptoAhorro(r, cotizacionUsdt) {
+function computeCriptoAhorro(r, cuenta, cotizacionUsdt) {
   const cantidad = Number(r.cantidad) || 0;
-  const precioCompra = Number(r.precio_compra_usd) || 0;
-  const precioActual = Number(r.precio_actual_usd) || 0;
+  const precioCompra = Number(r.precio_compra) || 0;
+  const precioActual = Number(r.precio_actual) || 0;
   const costoTotal = precioCompra ? cantidad * precioCompra : null;
   const valorActual = cantidad * precioActual;
   const pl = costoTotal !== null ? valorActual - costoTotal : null;
   const plPct = costoTotal ? pl / costoTotal : null;
-  const ars = valorActual * (Number(cotizacionUsdt) || 0);
-  return { cantidad, precioCompra, precioActual, valorActual, pl, plPct, usd: valorActual, ars };
+  let usd, ars;
+  if (cuenta.moneda === "ARS") {
+    ars = valorActual;
+    usd = cotizacionUsdt ? valorActual / Number(cotizacionUsdt) : 0;
+  } else {
+    usd = valorActual;
+    ars = valorActual * (Number(cotizacionUsdt) || 0);
+  }
+  return { cantidad, precioCompra, precioActual, valorActual, pl, plPct, usd, ars };
 }
 
 function computeUsdtAhorro(r, cotizacionUsdt) {
@@ -144,9 +158,9 @@ function computeUsdtAhorro(r, cotizacionUsdt) {
 function cuentaCompute(cuenta, rows, cotizacion, cotizacionUsdt) {
   const compute =
     cuenta.tipo === "bolsa"
-      ? (r) => computeBolsaAhorro(r, cotizacion)
+      ? (r) => computeBolsaAhorro(r, cuenta, cotizacion)
       : cuenta.tipo === "cripto"
-      ? (r) => computeCriptoAhorro(r, cotizacionUsdt)
+      ? (r) => computeCriptoAhorro(r, cuenta, cotizacionUsdt)
       : (r) => computeUsdtAhorro(r, cotizacionUsdt);
   const enriched = rows.map((r) => ({ ...r, ...compute(r) }));
   return {
@@ -257,7 +271,7 @@ export async function buildAhorrosExportPayload(incluirDetalleAhorros) {
           )
           .sort((a, b) => a.label.localeCompare(b.label, "es"))
       : [];
-    return { id: c.id, nombre: c.nombre, tipo: c.tipo, color: c.color, activos };
+    return { id: c.id, nombre: c.nombre, tipo: c.tipo, moneda: c.moneda, color: c.color, activos };
   });
 
   return {

@@ -13,10 +13,13 @@ export function tipoLabel(tipo) {
   return TIPOS.find((t) => t.value === tipo)?.label || tipo;
 }
 
+const MONEDA_DEFAULT_POR_TIPO = { bolsa: "ARS", cripto: "USD", usdt: "USD" };
+
 export default function GestionarCuentas({ cuentas, onChange }) {
   const [open, setOpen] = useState(false);
   const [nombre, setNombre] = useState("");
   const [tipo, setTipo] = useState(TIPOS[0].value);
+  const [moneda, setMoneda] = useState(MONEDA_DEFAULT_POR_TIPO[TIPOS[0].value]);
   const [color, setColor] = useState(PALETTE[0]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -59,7 +62,7 @@ export default function GestionarCuentas({ cuentas, onChange }) {
       const orden = cuentas.length
         ? Math.max(...cuentas.map((c) => Number(c.orden) || 0)) + 1
         : 0;
-      await api.insertCuentaAhorro({ tipo, nombre: nombre.trim(), color, orden });
+      await api.insertCuentaAhorro({ tipo, nombre: nombre.trim(), color, orden, moneda });
       setNombre("");
       setColor(PALETTE[0]);
       await onChange();
@@ -134,7 +137,9 @@ export default function GestionarCuentas({ cuentas, onChange }) {
                   <li key={c.id}>
                     <span className="manage-cards-dot" style={{ background: c.color }} />
                     <span className="manage-cards-name">{c.nombre}</span>
-                    <span className="manage-cards-tipo">{tipoLabel(c.tipo)}</span>
+                    <span className="manage-cards-tipo">
+                      {tipoLabel(c.tipo)} · {c.moneda}
+                    </span>
                     <button className="btn-del" onClick={() => startEdit(c)} title="Editar cuenta" style={{ color: "#8B93A1" }}>
                       ✎
                     </button>
@@ -154,12 +159,23 @@ export default function GestionarCuentas({ cuentas, onChange }) {
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
             />
-            <select value={tipo} onChange={(e) => setTipo(e.target.value)}>
+            <select
+              value={tipo}
+              onChange={(e) => {
+                const t = e.target.value;
+                setTipo(t);
+                setMoneda(MONEDA_DEFAULT_POR_TIPO[t]);
+              }}
+            >
               {TIPOS.map((t) => (
                 <option key={t.value} value={t.value}>
                   {t.label}
                 </option>
               ))}
+            </select>
+            <select value={moneda} onChange={(e) => setMoneda(e.target.value)} aria-label="Moneda de esta cuenta">
+              <option value="ARS">Moneda: ARS</option>
+              <option value="USD">Moneda: USD</option>
             </select>
             <div className="color-palette">
               {PALETTE.map((c) => (
