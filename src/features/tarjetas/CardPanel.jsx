@@ -278,15 +278,16 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
       <div className="subhead">Compras en cuotas (ARS)</div>
       <Table
         dense
+        fixedLayout
         columns={[
-          { key: "fecha", label: "Fecha" },
-          { key: "comercio", label: "Comercio" },
-          { key: "monto", label: "Monto", align: "right" },
-          { key: "cuotas", label: "Cuotas", align: "right" },
-          { key: "actual", label: "Cuota act.", align: "right" },
-          { key: "pend", label: "Pend.", align: "right" },
-          { key: "porCuota", label: "$/cuota", align: "right" },
-          { key: "pagado", label: "Pagado", align: "right" },
+          { key: "fecha", label: "Fecha", width: 100 },
+          { key: "comercio", label: "Comercio", width: 130 },
+          { key: "monto", label: "Monto", align: "right", width: 100 },
+          { key: "cuotas", label: "Cuotas", align: "right", width: 70 },
+          { key: "actual", label: "Cuota act.", align: "right", width: 70 },
+          { key: "pend", label: "Pend.", align: "right", width: 70 },
+          { key: "porCuota", label: "$/cuota", align: "right", width: 85 },
+          { key: "pagado", label: "Pagado", align: "right", width: 85 },
         ]}
         footer={
           <tr className="tbl-total">
@@ -358,11 +359,12 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
         Gastos en dólares (contado)
       </div>
       <Table
+        fixedLayout
         columns={[
-          { key: "fecha", label: "Fecha" },
-          { key: "comercio", label: "Comercio" },
-          { key: "monto", label: "Monto USD", align: "right" },
-          { key: "ars", label: "En pesos", align: "right" },
+          { key: "fecha", label: "Fecha", width: 100 },
+          { key: "comercio", label: "Comercio", width: 140 },
+          { key: "monto", label: "Monto USD", align: "right", width: 100 },
+          { key: "ars", label: "En pesos", align: "right", width: 100 },
         ]}
         footer={
           <tr className="tbl-total">
