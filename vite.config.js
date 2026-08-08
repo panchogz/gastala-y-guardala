@@ -16,6 +16,12 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      // El registro corre a mano desde src/main.jsx (virtual:pwa-register),
+      // que sí maneja detectar una versión nueva y recargar sola. El script
+      // que este plugin inyecta por defecto (injectRegister: "auto") solo
+      // hace un register() plano sin esa lógica — se desactiva para no
+      // terminar con dos registros del mismo SW.
+      injectRegister: false,
       includeAssets: ["apple-touch-icon.png"],
       manifest: {
         name: "Gastala y Guardala",
