@@ -14,11 +14,12 @@
    Los valores de margen son una aproximación calculada a mano (padding +
    line-height estimado), no una medición real en dispositivo — puede hacer
    falta un ajuste fino de un par de px después de probarlo en iPhone real.
-   Se aplica también a .cell-input/.tbl-dense .cell-input (celdas editables de
-   tabla): decisión consciente de volver al tamaño visual compacto de antes
-   aunque el touch target real quede por debajo del mínimo recomendado — es
-   la misma situación que ya existía antes de este fix (no es una regresión
-   nueva), no una mejora que se pierde. */
+   Deliberadamente NO se aplica a .cell-input/.tbl-dense .cell-input (celdas
+   editables de tabla): ya estaban con un touch target por debajo del mínimo
+   recomendado incluso antes de este fix, y el scale lo empeoraría todavía
+   más — se los deja en 16px real, un poco más grandes pero más fáciles de
+   tocar, en vez de comprimir el área táctil real para volver al tamaño
+   visual viejo. */
 
 html, body, #root { height: 100%; margin: 0; }
 html, body { overflow-x: hidden; background: #14181D; }
@@ -150,22 +151,12 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
 .tbl th { text-align: left; color: #8B93A1; font-weight: 600; font-size: 11px; text-transform: uppercase; padding: 6px 6px; border-bottom: 1px solid #2A313B; white-space: nowrap; }
 .tbl td { padding: 5px 6px; border-bottom: 1px solid #21262E; font-variant-numeric: tabular-nums; }
 .cell-input {
-  /* font-size >= 16px por el mismo motivo que .login-form input, ver el
-     comentario grande al inicio del archivo; scale para volver al tamaño
-     visual compacto viejo (13/16 = 0.8125). Decisión consciente: el touch
-     target real queda por debajo del mínimo recomendado, misma situación que
-     ya existía antes de este fix (no es una regresión nueva). height:32px es
-     el alto SIN escalar necesario para que, ya escalado (*0.8125), dé
-     exactamente 26px de alto visual (el viejo). width:100% es fluido, así
-     que el margen de compensación va en % (ver excepción para [type=date]
-     más abajo, que tiene ancho fijo en vez de fluido). */
+  /* font-size >= 16px por el mismo motivo que .login-form input, ver arriba.
+     La altura se ajusta un poco (26px -> 30px) para que el texto a 16px entre
+     cómodo; antes estaba pensada para 13px. */
   background: #12161B; border: 1px solid #2A313B; color: #5B9BE8;
   padding: 4px 6px; border-radius: 5px; width: 100%; min-width: 70px; font-size: 16px;
-  height: 32px; line-height: 1.2; font-family: inherit; -webkit-appearance: none; appearance: none;
-  transform: scale(0.8125);
-  transform-origin: top left;
-  margin-right: -18.75%;
-  margin-bottom: -6px;
+  height: 30px; line-height: 1.2; font-family: inherit; -webkit-appearance: none; appearance: none;
 }
 
 /* Los selectores nativos de fecha (iOS/Android) ignoran width:100% e imponen su propio
@@ -177,34 +168,14 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
   min-width: 130px;
   max-width: 130px;
   flex: none;
-  /* Ancho FIJO, no fluido como el resto de .cell-input: el margen de
-     compensación del scale no puede ir en % acá (eso se calcula contra el
-     ancho del contenedor, no el del propio input) — va en px, calculado
-     sobre este ancho fijo: -(130px * (1 - 0.8125)) = -24.375px. */
-  margin-right: -24.375px;
 }
 
 /* Variante compacta para tablas con muchas columnas (ej. compras en cuotas: 9 cols) */
 .tbl-dense { font-size: 12px; }
 .tbl-dense th { padding: 6px 4px; font-size: 10px; }
 .tbl-dense td { padding: 4px 4px; }
-.tbl-dense .cell-input {
-  /* Mismo criterio que .cell-input pero con el factor de escala viejo de las
-     tablas densas (12/16 = 0.75). height:32px sin escalar -> 24px visual
-     (*0.75), el alto denso original. */
-  padding: 3px 4px; min-width: 56px; font-size: 16px; height: 32px;
-  transform: scale(0.75);
-  transform-origin: top left;
-  margin-right: -25%;
-  margin-bottom: -8px;
-}
-.tbl-dense .cell-input[type="date"] {
-  width: 112px;
-  min-width: 112px;
-  max-width: 112px;
-  /* Ancho fijo, mismo motivo que .cell-input[type=date]: -(112px * (1 - 0.75)) = -28px. */
-  margin-right: -28px;
-}
+.tbl-dense .cell-input { padding: 3px 4px; min-width: 56px; font-size: 16px; height: 28px; }
+.tbl-dense .cell-input[type="date"] { width: 112px; min-width: 112px; max-width: 112px; }
 .cell-computed { color: #E8E6E1; }
 .tbl-total td { font-weight: 700; border-top: 1px solid #2A313B; border-bottom: none; padding-top: 8px; }
 .tbl-subtotal td { font-weight: 600; color: #8B93A1; border-bottom: 1px solid #2A313B; padding-bottom: 10px; }
