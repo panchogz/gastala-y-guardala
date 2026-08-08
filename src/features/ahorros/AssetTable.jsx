@@ -72,7 +72,6 @@ export default function AssetTable({
                   value={r[c.key] ?? ""}
                   onChange={(v) => updateLocal(r.id, c.key, v)}
                   onBlur={() => saveRow(r)}
-                  inputStyle={c.inputStyle}
                 />
               ) : (
                 <Cell key={c.key} align={c.align} value={r[c.key]} format={c.format} />
