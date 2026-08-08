@@ -1,18 +1,7 @@
-export function Table({ columns, children, footer, dense, fixedLayout }) {
-  const classes = ["tbl"];
-  if (dense) classes.push("tbl-dense");
-  if (fixedLayout) classes.push("tbl-fixed");
+export function Table({ columns, children, footer, dense }) {
   return (
     <div className="tbl-wrap">
-      <table className={classes.join(" ")}>
-        {fixedLayout && (
-          <colgroup>
-            {columns.map((c) => (
-              <col key={c.key} style={{ width: c.width }} />
-            ))}
-            <col style={{ width: 32 }} />
-          </colgroup>
-        )}
+      <table className={dense ? "tbl tbl-dense" : "tbl"}>
         <thead>
           <tr>
             {columns.map((c) => (
