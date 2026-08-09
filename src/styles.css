@@ -1,6 +1,12 @@
 *, *::before, *::after { box-sizing: border-box; }
 
-html, body, #root { height: 100%; margin: 0; }
+/* html ancla su altura con 100dvh (viewport dinámico) en vez de 100% (que
+   resuelve contra el viewport "grande"/estático de iOS, sin achicarse cuando
+   aparece el teclado). body y #root heredan con height:100% normal — alcanza
+   con corregir el ancla de arriba de la cadena. */
+html { height: 100dvh; }
+body, #root { height: 100%; }
+html, body, #root { margin: 0; }
 html, body { overflow-x: hidden; background: #14181D; }
 
 .app-root {
@@ -41,7 +47,11 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
 .view-toggle-btn:hover { border-color: #5B9BE8; color: #E8E6E1; }
 .app-header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
-.login-root { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+/* 100dvh en vez de 100vh: en iOS, 100vh resuelve contra el viewport "grande"
+   (sin descontar el teclado), así que al enfocar el input del PIN/código el
+   contenido centrado no se achicaba junto con el teclado y saltaba de lugar.
+   100dvh sí seguía el viewport visual real. */
+.login-root { display: flex; align-items: center; justify-content: center; min-height: 100dvh; }
 .login-box {
   background: #1D232B; border: 1px solid #2A313B; border-radius: 12px;
   padding: 32px; max-width: 380px; width: 100%; text-align: center;
