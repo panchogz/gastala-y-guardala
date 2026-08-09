@@ -102,9 +102,6 @@ export default function AhorrosView() {
   const cuentasBolsa = cuentas.filter((c) => c.tipo === "bolsa").sort(porNombre);
   const cuentasCripto = cuentas.filter((c) => c.tipo === "cripto").sort(porNombre);
   const cuentasUsdt = cuentas.filter((c) => c.tipo === "usdt").sort(porNombre);
-  const usaBolsa = cuentasBolsa.length > 0;
-  const usaCripto = cuentasCripto.length > 0;
-  const usaUsdt = cuentasUsdt.length > 0;
 
   const rowsOfTipo = (lista) => lista.flatMap((c) => activosPorCuenta[c.id] || []);
 

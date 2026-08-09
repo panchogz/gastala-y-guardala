@@ -12,3 +12,4 @@ VIT_KEYS.env
 .vercel
 .env*
 spread_polling_data.csv
+scratch_spread_polling.py
