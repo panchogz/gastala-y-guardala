@@ -470,7 +470,7 @@ export default function AhorrosView() {
                               <tr className="tbl-total">
                                 <td>
                                   <span className="manage-cards-dot" style={{ background: c.color, marginRight: 8 }} />
-                                  Subtotal {c.nombre}
+                                  {c.nombre}
                                 </td>
                                 <td style={{ textAlign: "right" }}>{fmtUSD(cuentaTotal.usd)}</td>
                                 <td style={{ textAlign: "right" }}>{fmtARS(cuentaTotal.ars)}</td>
@@ -484,7 +484,7 @@ export default function AhorrosView() {
                         );
                       })}
                       <tr className="tbl-total">
-                        <td style={{ color: TIPO_ACCENT[g.tipo] }}>Subtotal {tipoLabel(g.tipo)}</td>
+                        <td style={{ color: TIPO_ACCENT[g.tipo] }}>{tipoLabel(g.tipo)}</td>
                         <td style={{ textAlign: "right" }}>{fmtUSD(subtotalUSD)}</td>
                         <td style={{ textAlign: "right" }}>{fmtARS(subtotalARS)}</td>
                         <td style={{ textAlign: "right" }}>—</td>
