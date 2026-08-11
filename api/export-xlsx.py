@@ -680,7 +680,10 @@ def _write_detalle_cuenta_ahorro(ws, row, cuenta):
     activos = cuenta.get("activos") or []
 
     if tipo == "usdt":
-        headers = ["Activo / Plataforma", "Costo total (USD)", "Valor actual (USD)", "Rendimiento (USD)"]
+        # costoTotal/valorActual del payload son en realidad saldo cerrado (capital a
+        # fecha_ultimo_calculo) y saldo actual (capitalizado día a día hasta hoy) —
+        # interés compuesto diario sobre TNA, no un costo/valor de compra-venta.
+        headers = ["Activo / Plataforma", "Saldo (USD)", "Saldo actual (USD)", "Rendimiento (USD)"]
         formats = [None, USD_FMT, USD_FMT, USD_FMT]
         data_rows = [
             [

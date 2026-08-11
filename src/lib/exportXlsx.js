@@ -1,6 +1,6 @@
 import * as api from "../features/tarjetas/api.js";
 import * as ahorrosApi from "../features/ahorros/api.js";
-import { fullMonthsBetween, currentMonthKey } from "./helpers.js";
+import { fullMonthsBetween, currentMonthKey, todayISO } from "./helpers.js";
 
 // El export no reusa el estado ya cargado en TarjetasView/CardPanel (queda
 // repartido por tarjeta dentro de cada CardPanel, no centralizado) — vuelve a
@@ -147,12 +147,23 @@ function computeCriptoAhorro(r, cuenta, cotizacionUsdt) {
   return { cantidad, precioCompra, precioActual, valorActual, pl, plPct, usd, ars };
 }
 
+function diasEntreAhorro(desdeISO, hastaISO) {
+  if (!desdeISO) return 0;
+  const ms = new Date(hastaISO) - new Date(desdeISO);
+  return Math.max(0, Math.round(ms / 86400000));
+}
+
+// Mismo cálculo de interés compuesto diario que AhorrosView.jsx (ver ese
+// archivo para el detalle): saldo_usd es el capital cerrado a
+// fecha_ultimo_calculo, saldoActual lo capitaliza día a día hasta hoy.
 function computeUsdtAhorro(r, cotizacionUsdt) {
-  const costoTotal = Number(r.costo_total_usd) || 0;
-  const valorActual = Number(r.valor_actual_usd) || 0;
-  const rendimiento = costoTotal ? valorActual - costoTotal : null;
-  const ars = valorActual * (Number(cotizacionUsdt) || 0);
-  return { costoTotal, valorActual, rendimiento, usd: valorActual, ars };
+  const saldoUsd = Number(r.saldo_usd) || 0;
+  const tasaAnual = Number(r.tasa_anual) || 0;
+  const dias = diasEntreAhorro(r.fecha_ultimo_calculo, todayISO());
+  const saldoActual = saldoUsd * Math.pow(1 + tasaAnual / 100 / 365, dias);
+  const rendimiento = saldoActual - saldoUsd;
+  const ars = saldoActual * (Number(cotizacionUsdt) || 0);
+  return { costoTotal: saldoUsd, valorActual: saldoActual, rendimiento, usd: saldoActual, ars };
 }
 
 function cuentaCompute(cuenta, rows, cotizacion, cotizacionUsdt) {

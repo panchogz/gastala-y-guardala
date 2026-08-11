@@ -11,7 +11,8 @@ import {
 } from "recharts";
 import AssetTable from "./AssetTable.jsx";
 import GestionarCuentas, { tipoLabel } from "./GestionarCuentas.jsx";
-import { fmtARS, fmtUSD, fmtPct, mesLabel, mesLabelCorto } from "../../lib/helpers.js";
+import { Table, Cell } from "../../components/Table.jsx";
+import { fmtARS, fmtUSD, fmtPct, mesLabel, mesLabelCorto, todayISO } from "../../lib/helpers.js";
 import * as api from "./api.js";
 
 function apiForTipo(tipo) {
@@ -44,6 +45,16 @@ export default function AhorrosView() {
   const [cotizacionUsdt, setCotizacionUsdt] = useState(1200);
   const [evolucionCuenta, setEvolucionCuenta] = useState([]);
   const [monedaEvolucion, setMonedaEvolucion] = useState("USD");
+  // Buffer local de edición de TNA por fila (id -> string tipeado). Mientras se
+  // edita NO se toca activosPorCuenta, así el "cierre" de interés (ver
+  // handleTasaBlur) siempre calcula con la tasa/saldo/fecha viejos, no con lo
+  // que el usuario todavía está tipeando.
+  const [editingTasa, setEditingTasa] = useState({});
+  // Mismo criterio para "Saldo aportado (USD)" (saldo_usd): siempre visible con
+  // su valor guardado, editable in place. Subir el valor = aporte nuevo (cierra
+  // capitalizando interés antes de sumar la diferencia); bajarlo = corrección
+  // directa del saldo (no capitaliza, no toca fecha_ultimo_calculo).
+  const [editingSaldo, setEditingSaldo] = useState({});
 
   const loadCuentas = useCallback(async () => {
     const rows = await api.fetchCuentasAhorro();
@@ -154,18 +165,121 @@ export default function AhorrosView() {
     0
   );
 
-  // ---- usdt (usa la cotización USDT, no la CCL/MEP) ----
+  // ---- usdt: interés compuesto diario sobre TNA, calculado en vivo al
+  // renderizar (no se guarda el saldo día a día) — usa la cotización USDT,
+  // no la CCL/MEP. saldo_usd es el capital "cerrado" a fecha_ultimo_calculo
+  // (la última vez que se agregaron fondos o se cambió la tasa); saldoActual
+  // es ese capital capitalizado día a día hasta hoy. ----
+  const diasEntre = (desdeISO, hastaISO) => {
+    if (!desdeISO) return 0;
+    const ms = new Date(hastaISO) - new Date(desdeISO);
+    return Math.max(0, Math.round(ms / 86400000));
+  };
   const usdtCompute = (r) => {
-    const costoTotal = Number(r.costo_total_usd) || 0;
-    const valorActual = Number(r.valor_actual_usd) || 0;
-    const rendimiento = costoTotal ? valorActual - costoTotal : null;
-    const valorARS = valorActual * (Number(cotizacionUsdt) || 0);
-    return { rendimiento, valorARS };
+    const saldoUsd = Number(r.saldo_usd) || 0;
+    const tasaAnual = Number(r.tasa_anual) || 0;
+    const dias = diasEntre(r.fecha_ultimo_calculo, todayISO());
+    const saldoActual = saldoUsd * Math.pow(1 + tasaAnual / 100 / 365, dias);
+    const rendimiento = saldoActual - saldoUsd;
+    const valorARS = saldoActual * (Number(cotizacionUsdt) || 0);
+    return { saldoActual, rendimiento, valorARS };
   };
   const usdtTotalUSD = rowsOfTipo(cuentasUsdt).reduce(
-    (a, r) => a + (Number(r.valor_actual_usd) || 0),
+    (a, r) => a + usdtCompute(r).saldoActual,
     0
   );
+
+  async function addUsdt(cuentaId) {
+    try {
+      const row = await api.usdtApi.insert(cuentaId, {
+        activo: "",
+        tasa_anual: 0,
+        saldo_usd: 0,
+        fecha_ultimo_calculo: todayISO(),
+      });
+      setRowsFor(cuentaId)((rows) => [row, ...rows]);
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function delUsdt(cuentaId, id) {
+    try {
+      await api.usdtApi.remove(id);
+      setRowsFor(cuentaId)((rows) => rows.filter((r) => r.id !== id));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function saveUsdtActivo(id, activo) {
+    try {
+      await api.usdtApi.update(id, { activo });
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  // "Cerrar" el cálculo antes de cambiar la tasa: el saldo_actual computado con
+  // la tasa VIEJA hasta hoy pasa a ser el nuevo saldo_usd, fecha_ultimo_calculo
+  // se actualiza a hoy, y recién ahí se guarda la tasa nueva. r llega con sus
+  // valores tal cual están guardados (no editados) porque mientras se tipea la
+  // tasa nueva no se toca activosPorCuenta, solo el buffer editingTasa.
+  async function handleTasaBlur(cuentaId, r) {
+    const editValue = editingTasa[r.id];
+    if (editValue === undefined) return;
+    setEditingTasa((prev) => {
+      const next = { ...prev };
+      delete next[r.id];
+      return next;
+    });
+    const nuevaTasa = Number(editValue) || 0;
+    if (nuevaTasa === (Number(r.tasa_anual) || 0)) return; // sin cambio real, no "cerrar" al pedo
+    const { saldoActual } = usdtCompute(r);
+    const patch = { saldo_usd: saldoActual, fecha_ultimo_calculo: todayISO(), tasa_anual: nuevaTasa };
+    try {
+      await api.usdtApi.update(r.id, patch);
+      setRowsFor(cuentaId)((rows) => rows.map((row) => (row.id === r.id ? { ...row, ...patch } : row)));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  // "Saldo aportado (USD)" (saldo_usd) editado in place, igual que cualquier
+  // otro campo de la app: siempre muestra el valor guardado, nunca vacío.
+  // - Valor NUEVO mayor al guardado -> se interpreta como aporte nuevo: la
+  //   diferencia se suma DESPUÉS de capitalizar el interés generado hasta hoy
+  //   con la tasa vigente (mismo "cierre" que el cambio de tasa).
+  // - Valor NUEVO menor -> corrección directa del saldo (typo de carga, no un
+  //   retiro): se pisa saldo_usd tal cual, sin capitalizar ni tocar
+  //   fecha_ultimo_calculo.
+  async function handleSaldoBlur(cuentaId, r) {
+    const editValue = editingSaldo[r.id];
+    if (editValue === undefined) return;
+    setEditingSaldo((prev) => {
+      const next = { ...prev };
+      delete next[r.id];
+      return next;
+    });
+    const nuevoValor = Number(editValue) || 0;
+    const saldoViejo = Number(r.saldo_usd) || 0;
+    if (nuevoValor === saldoViejo) return; // sin cambio real
+
+    let patch;
+    if (nuevoValor > saldoViejo) {
+      const diferencia = nuevoValor - saldoViejo;
+      const { saldoActual } = usdtCompute(r);
+      patch = { saldo_usd: saldoActual + diferencia, fecha_ultimo_calculo: todayISO() };
+    } else {
+      patch = { saldo_usd: nuevoValor };
+    }
+    try {
+      await api.usdtApi.update(r.id, patch);
+      setRowsFor(cuentaId)((rows) => rows.map((row) => (row.id === r.id ? { ...row, ...patch } : row)));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
 
   const resumen = useMemo(() => {
     const criptoUSD = criptoTotalUSD;
@@ -200,8 +314,8 @@ export default function AhorrosView() {
       const ars = rows.reduce((a, r) => a + criptoCompute(r, c).valorARS, 0);
       return { usd, ars };
     }
-    const usd = rows.reduce((a, r) => a + (Number(r.valor_actual_usd) || 0), 0);
-    const ars = usd * (Number(cotizacionUsdt) || 0);
+    const usd = rows.reduce((a, r) => a + usdtCompute(r).saldoActual, 0);
+    const ars = rows.reduce((a, r) => a + usdtCompute(r).valorARS, 0);
     return { usd, ars };
   }
 
@@ -223,8 +337,8 @@ export default function AhorrosView() {
       });
     } else {
       activos = rows.map((r) => {
-        const { valorARS } = usdtCompute(r);
-        return { id: r.id, label: r.activo || "—", usd: Number(r.valor_actual_usd) || 0, ars: valorARS };
+        const { saldoActual, valorARS } = usdtCompute(r);
+        return { id: r.id, label: r.activo || "—", usd: saldoActual, ars: valorARS };
       });
     }
     return sortByLabel(activos, "label");
@@ -398,31 +512,86 @@ export default function AhorrosView() {
             );
           })}
 
-          {cuentasUsdt.map((c) => (
-            <AssetTable
-              key={c.id}
-              title={c.nombre}
-              accent={c.color}
-              rows={sortByLabel(activosPorCuenta[c.id] || [], "activo")}
-              setRows={setRowsFor(c.id)}
-              fields={["activo", "costo_total_usd", "valor_actual_usd"]}
-              onAdd={() => api.usdtApi.insert(c.id, { activo: "", costo_total_usd: 0, valor_actual_usd: 0 })}
-              onUpdate={(id, patch) => api.usdtApi.update(id, patch)}
-              onDelete={(id) => api.usdtApi.remove(id)}
-              columns={[
-                { key: "activo", label: "Activo / plataforma", editable: true },
-                { key: "costo_total_usd", label: "Costo total (USD)", editable: true, type: "number", align: "right" },
-                { key: "valor_actual_usd", label: "Valor actual (USD)", editable: true, type: "number", align: "right" },
-                { key: "rendimiento", label: "Rendimiento", align: "right", format: (v) => (v === null ? "—" : fmtUSD(v)) },
-                { key: "valorARS", label: "Valor (ARS)", align: "right", format: fmtARS },
-              ]}
-              computeRow={usdtCompute}
-              totalFn={(rows) => ({
-                valorActual: rows.reduce((a, r) => a + (Number(r.valor_actual_usd) || 0), 0),
-                valorARS: rows.reduce((a, r) => a + r.valorARS, 0),
-              })}
-            />
-          ))}
+          {cuentasUsdt.map((c) => {
+            const rows = sortByLabel(activosPorCuenta[c.id] || [], "activo");
+            const totals = rows.reduce(
+              (acc, r) => {
+                const { saldoActual, rendimiento, valorARS } = usdtCompute(r);
+                acc.saldoActual += saldoActual;
+                acc.rendimiento += rendimiento;
+                acc.valorARS += valorARS;
+                return acc;
+              },
+              { saldoActual: 0, rendimiento: 0, valorARS: 0 }
+            );
+            return (
+              <div className="asset-block" style={{ borderTopColor: c.color }} key={c.id}>
+                <h3 style={{ color: c.color }}>{c.nombre}</h3>
+                <Table
+                  columns={[
+                    { key: "activo", label: "Activo / plataforma" },
+                    { key: "saldoAportado", label: "Saldo aportado (USD)", align: "right" },
+                    { key: "tasa", label: "TNA (%)", align: "right" },
+                    { key: "saldo", label: "Saldo actual (USD)", align: "right" },
+                    { key: "rendimiento", label: "Rendimiento (USD)", align: "right" },
+                    { key: "ars", label: "Valor (ARS)", align: "right" },
+                  ]}
+                  footer={
+                    <tr className="tbl-total">
+                      <td colSpan={3}>TOTAL</td>
+                      <td style={{ textAlign: "right" }}>{fmtUSD(totals.saldoActual)}</td>
+                      <td style={{ textAlign: "right" }}>{fmtUSD(totals.rendimiento)}</td>
+                      <td style={{ textAlign: "right" }}>{fmtARS(totals.valorARS)}</td>
+                      <td />
+                    </tr>
+                  }
+                >
+                  {rows.map((r) => {
+                    const { saldoActual, rendimiento, valorARS } = usdtCompute(r);
+                    return (
+                      <tr key={r.id}>
+                        <Cell
+                          editable
+                          value={r.activo || ""}
+                          onChange={(v) =>
+                            setRowsFor(c.id)((rs) => rs.map((row) => (row.id === r.id ? { ...row, activo: v } : row)))
+                          }
+                          onBlur={() => saveUsdtActivo(r.id, r.activo || "")}
+                        />
+                        <Cell
+                          editable
+                          type="number"
+                          align="right"
+                          value={editingSaldo[r.id] ?? r.saldo_usd ?? 0}
+                          onChange={(v) => setEditingSaldo((prev) => ({ ...prev, [r.id]: v }))}
+                          onBlur={() => handleSaldoBlur(c.id, r)}
+                        />
+                        <Cell
+                          editable
+                          type="number"
+                          align="right"
+                          value={editingTasa[r.id] ?? r.tasa_anual ?? 0}
+                          onChange={(v) => setEditingTasa((prev) => ({ ...prev, [r.id]: v }))}
+                          onBlur={() => handleTasaBlur(c.id, r)}
+                        />
+                        <Cell align="right" value={saldoActual} format={fmtUSD} />
+                        <Cell align="right" value={rendimiento} format={fmtUSD} />
+                        <Cell align="right" value={valorARS} format={fmtARS} />
+                        <td>
+                          <button className="btn-del" onClick={() => delUsdt(c.id, r.id)}>
+                            ×
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </Table>
+                <button className="btn-add" onClick={() => addUsdt(c.id)}>
+                  + agregar
+                </button>
+              </div>
+            );
+          })}
         </>
       )}
 
