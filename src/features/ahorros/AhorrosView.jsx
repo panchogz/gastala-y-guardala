@@ -18,13 +18,15 @@ import * as api from "./api.js";
 function apiForTipo(tipo) {
   if (tipo === "bolsa") return api.bolsaApi;
   if (tipo === "cripto") return api.criptoApi;
+  if (tipo === "pesos") return api.pesosApi;
   return api.usdtApi;
 }
 
-const TIPO_ACCENT = { bolsa: "#5B9BE8", cripto: "#35D0A0", usdt: "#E8A855" };
-// Orden fijo de tipos (Bolsa → Cripto → USD/Stable), independiente del orden de
-// creación de las cuentas. Dentro de cada tipo, cuentas y activos van alfabéticos.
-const TIPO_ORDEN = { bolsa: 0, cripto: 1, usdt: 2 };
+const TIPO_ACCENT = { bolsa: "#5B9BE8", cripto: "#35D0A0", usdt: "#E8A855", pesos: "#C77DFF" };
+// Orden fijo de tipos (Bolsa → Cripto → USD/Stable → Pesos), independiente del
+// orden de creación de las cuentas. Dentro de cada tipo, cuentas y activos van
+// alfabéticos.
+const TIPO_ORDEN = { bolsa: 0, cripto: 1, usdt: 2, pesos: 3 };
 
 const porNombre = (a, b) => (a.nombre || "").localeCompare(b.nombre || "", "es");
 const porTipoYNombre = (a, b) => TIPO_ORDEN[a.tipo] - TIPO_ORDEN[b.tipo] || porNombre(a, b);
@@ -55,6 +57,10 @@ export default function AhorrosView() {
   // capitalizando interés antes de sumar la diferencia); bajarlo = corrección
   // directa del saldo (no capitaliza, no toca fecha_ultimo_calculo).
   const [editingSaldo, setEditingSaldo] = useState({});
+  // Mismos buffers que arriba, pero para Pesos Líquidos (tabla/campos propios,
+  // no comparten filas con USD/Stable — separados solo por prolijidad).
+  const [editingTasaPesos, setEditingTasaPesos] = useState({});
+  const [editingSaldoPesos, setEditingSaldoPesos] = useState({});
 
   const loadCuentas = useCallback(async () => {
     const rows = await api.fetchCuentasAhorro();
@@ -113,6 +119,7 @@ export default function AhorrosView() {
   const cuentasBolsa = cuentas.filter((c) => c.tipo === "bolsa").sort(porNombre);
   const cuentasCripto = cuentas.filter((c) => c.tipo === "cripto").sort(porNombre);
   const cuentasUsdt = cuentas.filter((c) => c.tipo === "usdt").sort(porNombre);
+  const cuentasPesos = cuentas.filter((c) => c.tipo === "pesos").sort(porNombre);
 
   const rowsOfTipo = (lista) => lista.flatMap((c) => activosPorCuenta[c.id] || []);
 
@@ -281,25 +288,125 @@ export default function AhorrosView() {
     }
   }
 
+  // ---- pesos (caja de ahorro remunerada): mismísimo mecanismo que USD/Stable
+  // arriba, capitalización diaria sobre TNA, pero en ARS y con conversión a
+  // USD vía la cotización dólar (CCL/MEP) en vez de la de USDT. ----
+  const pesosCompute = (r) => {
+    const saldoArs = Number(r.saldo_ars) || 0;
+    const tasaTna = Number(r.tasa_tna) || 0;
+    const dias = diasEntre(r.fecha_ultimo_calculo, todayISO());
+    const saldoActual = saldoArs * Math.pow(1 + tasaTna / 100 / 365, dias);
+    const rendimiento = saldoActual - saldoArs;
+    const valorUSD = cotizacion ? saldoActual / Number(cotizacion) : 0;
+    return { saldoActual, rendimiento, valorUSD };
+  };
+  const pesosTotalARS = rowsOfTipo(cuentasPesos).reduce(
+    (a, r) => a + pesosCompute(r).saldoActual,
+    0
+  );
+
+  async function addPesos(cuentaId) {
+    try {
+      const row = await api.pesosApi.insert(cuentaId, {
+        activo: "",
+        tasa_tna: 0,
+        saldo_ars: 0,
+        fecha_ultimo_calculo: todayISO(),
+      });
+      setRowsFor(cuentaId)((rows) => [row, ...rows]);
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function delPesos(cuentaId, id) {
+    try {
+      await api.pesosApi.remove(id);
+      setRowsFor(cuentaId)((rows) => rows.filter((r) => r.id !== id));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function savePesosActivo(id, activo) {
+    try {
+      await api.pesosApi.update(id, { activo });
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function handleTasaPesosBlur(cuentaId, r) {
+    const editValue = editingTasaPesos[r.id];
+    if (editValue === undefined) return;
+    setEditingTasaPesos((prev) => {
+      const next = { ...prev };
+      delete next[r.id];
+      return next;
+    });
+    const nuevaTasa = Number(editValue) || 0;
+    if (nuevaTasa === (Number(r.tasa_tna) || 0)) return;
+    const { saldoActual } = pesosCompute(r);
+    const patch = { saldo_ars: saldoActual, fecha_ultimo_calculo: todayISO(), tasa_tna: nuevaTasa };
+    try {
+      await api.pesosApi.update(r.id, patch);
+      setRowsFor(cuentaId)((rows) => rows.map((row) => (row.id === r.id ? { ...row, ...patch } : row)));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function handleSaldoPesosBlur(cuentaId, r) {
+    const editValue = editingSaldoPesos[r.id];
+    if (editValue === undefined) return;
+    setEditingSaldoPesos((prev) => {
+      const next = { ...prev };
+      delete next[r.id];
+      return next;
+    });
+    const nuevoValor = Number(editValue) || 0;
+    const saldoViejo = Number(r.saldo_ars) || 0;
+    if (nuevoValor === saldoViejo) return;
+
+    let patch;
+    if (nuevoValor > saldoViejo) {
+      const diferencia = nuevoValor - saldoViejo;
+      const { saldoActual } = pesosCompute(r);
+      patch = { saldo_ars: saldoActual + diferencia, fecha_ultimo_calculo: todayISO() };
+    } else {
+      patch = { saldo_ars: nuevoValor };
+    }
+    try {
+      await api.pesosApi.update(r.id, patch);
+      setRowsFor(cuentaId)((rows) => rows.map((row) => (row.id === r.id ? { ...row, ...patch } : row)));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
   const resumen = useMemo(() => {
     const criptoUSD = criptoTotalUSD;
     const bolsaUSD = cotizacion ? bolsaTotalARS / cotizacion : 0;
     const dolaresUSD = usdtTotalUSD;
-    const totalUSD = criptoUSD + bolsaUSD + dolaresUSD;
+    const pesosUSD = cotizacion ? pesosTotalARS / cotizacion : 0;
+    const totalUSD = criptoUSD + bolsaUSD + dolaresUSD + pesosUSD;
     const criptoARS = criptoUSD * cotizacionUsdt;
     const bolsaARS = bolsaTotalARS;
     const dolaresARS = dolaresUSD * cotizacionUsdt;
+    const pesosARS = pesosTotalARS;
     return {
       criptoUSD,
       bolsaUSD,
       dolaresUSD,
+      pesosUSD,
       totalUSD,
       criptoARS,
       bolsaARS,
       dolaresARS,
-      totalARS: criptoARS + bolsaARS + dolaresARS,
+      pesosARS,
+      totalARS: criptoARS + bolsaARS + dolaresARS + pesosARS,
     };
-  }, [criptoTotalUSD, bolsaTotalARS, usdtTotalUSD, cotizacion, cotizacionUsdt]);
+  }, [criptoTotalUSD, bolsaTotalARS, usdtTotalUSD, pesosTotalARS, cotizacion, cotizacionUsdt]);
 
   // ---- totales por cuenta individual (para el resumen y el snapshot) ----
   function totalesDeCuenta(c) {
@@ -312,6 +419,11 @@ export default function AhorrosView() {
     if (c.tipo === "cripto") {
       const usd = rows.reduce((a, r) => a + criptoCompute(r, c).valorUSD, 0);
       const ars = rows.reduce((a, r) => a + criptoCompute(r, c).valorARS, 0);
+      return { usd, ars };
+    }
+    if (c.tipo === "pesos") {
+      const ars = rows.reduce((a, r) => a + pesosCompute(r).saldoActual, 0);
+      const usd = rows.reduce((a, r) => a + pesosCompute(r).valorUSD, 0);
       return { usd, ars };
     }
     const usd = rows.reduce((a, r) => a + usdtCompute(r).saldoActual, 0);
@@ -335,6 +447,11 @@ export default function AhorrosView() {
         const { valorUSD, valorARS } = criptoCompute(r, c);
         return { id: r.id, label: r.activo || "—", usd: valorUSD, ars: valorARS };
       });
+    } else if (c.tipo === "pesos") {
+      activos = rows.map((r) => {
+        const { saldoActual, valorUSD } = pesosCompute(r);
+        return { id: r.id, label: r.activo || "—", usd: valorUSD, ars: saldoActual };
+      });
     } else {
       activos = rows.map((r) => {
         const { saldoActual, valorARS } = usdtCompute(r);
@@ -348,6 +465,7 @@ export default function AhorrosView() {
     { tipo: "bolsa", cuentas: cuentasBolsa },
     { tipo: "cripto", cuentas: cuentasCripto },
     { tipo: "usdt", cuentas: cuentasUsdt },
+    { tipo: "pesos", cuentas: cuentasPesos },
   ].filter((g) => g.cuentas.length > 0);
 
   async function handleGuardarSnapshot() {
@@ -587,6 +705,87 @@ export default function AhorrosView() {
                   })}
                 </Table>
                 <button className="btn-add" onClick={() => addUsdt(c.id)}>
+                  + agregar
+                </button>
+              </div>
+            );
+          })}
+
+          {cuentasPesos.map((c) => {
+            const rows = sortByLabel(activosPorCuenta[c.id] || [], "activo");
+            const totals = rows.reduce(
+              (acc, r) => {
+                const { saldoActual, rendimiento, valorUSD } = pesosCompute(r);
+                acc.saldoActual += saldoActual;
+                acc.rendimiento += rendimiento;
+                acc.valorUSD += valorUSD;
+                return acc;
+              },
+              { saldoActual: 0, rendimiento: 0, valorUSD: 0 }
+            );
+            return (
+              <div className="asset-block" style={{ borderTopColor: c.color }} key={c.id}>
+                <h3 style={{ color: c.color }}>{c.nombre}</h3>
+                <Table
+                  columns={[
+                    { key: "activo", label: "Activo / plataforma" },
+                    { key: "saldoAportado", label: "Saldo aportado (ARS)", align: "right" },
+                    { key: "tasa", label: "TNA (%)", align: "right" },
+                    { key: "saldo", label: "Saldo actual (ARS)", align: "right" },
+                    { key: "rendimiento", label: "Rendimiento (ARS)", align: "right" },
+                    { key: "usd", label: "Valor (USD)", align: "right" },
+                  ]}
+                  footer={
+                    <tr className="tbl-total">
+                      <td colSpan={3}>TOTAL</td>
+                      <td style={{ textAlign: "right" }}>{fmtARS(totals.saldoActual)}</td>
+                      <td style={{ textAlign: "right" }}>{fmtARS(totals.rendimiento)}</td>
+                      <td style={{ textAlign: "right" }}>{fmtUSD(totals.valorUSD)}</td>
+                      <td />
+                    </tr>
+                  }
+                >
+                  {rows.map((r) => {
+                    const { saldoActual, rendimiento, valorUSD } = pesosCompute(r);
+                    return (
+                      <tr key={r.id}>
+                        <Cell
+                          editable
+                          value={r.activo || ""}
+                          onChange={(v) =>
+                            setRowsFor(c.id)((rs) => rs.map((row) => (row.id === r.id ? { ...row, activo: v } : row)))
+                          }
+                          onBlur={() => savePesosActivo(r.id, r.activo || "")}
+                        />
+                        <Cell
+                          editable
+                          type="number"
+                          align="right"
+                          value={editingSaldoPesos[r.id] ?? r.saldo_ars ?? 0}
+                          onChange={(v) => setEditingSaldoPesos((prev) => ({ ...prev, [r.id]: v }))}
+                          onBlur={() => handleSaldoPesosBlur(c.id, r)}
+                        />
+                        <Cell
+                          editable
+                          type="number"
+                          align="right"
+                          value={editingTasaPesos[r.id] ?? r.tasa_tna ?? 0}
+                          onChange={(v) => setEditingTasaPesos((prev) => ({ ...prev, [r.id]: v }))}
+                          onBlur={() => handleTasaPesosBlur(c.id, r)}
+                        />
+                        <Cell align="right" value={saldoActual} format={fmtARS} />
+                        <Cell align="right" value={rendimiento} format={fmtARS} />
+                        <Cell align="right" value={valorUSD} format={fmtUSD} />
+                        <td>
+                          <button className="btn-del" onClick={() => delPesos(c.id, r.id)}>
+                            ×
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </Table>
+                <button className="btn-add" onClick={() => addPesos(c.id)}>
                   + agregar
                 </button>
               </div>

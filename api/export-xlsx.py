@@ -33,8 +33,8 @@ from openpyxl.utils.units import cm_to_EMU
 
 MESES_ES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
 
-TIPO_AHORRO_LABEL = {"bolsa": "Bolsa", "cripto": "Cripto", "usdt": "USD / Stable"}
-TIPO_AHORRO_COLOR = {"bolsa": "5B9BE8", "cripto": "35D0A0", "usdt": "E8A855"}
+TIPO_AHORRO_LABEL = {"bolsa": "Bolsa", "cripto": "Cripto", "usdt": "USD / Stable", "pesos": "Pesos Líquidos"}
+TIPO_AHORRO_COLOR = {"bolsa": "5B9BE8", "cripto": "35D0A0", "usdt": "E8A855", "pesos": "C77DFF"}
 
 HEADER_FILL = PatternFill("solid", fgColor="F2F2F2")
 HEADER_FONT = Font(bold=True)
@@ -679,12 +679,20 @@ def _write_detalle_cuenta_ahorro(ws, row, cuenta):
     tipo = cuenta.get("tipo")
     activos = cuenta.get("activos") or []
 
-    if tipo == "usdt":
+    if tipo in ("usdt", "pesos"):
         # costoTotal/valorActual del payload son en realidad saldo cerrado (capital a
         # fecha_ultimo_calculo) y saldo actual (capitalizado día a día hasta hoy) —
-        # interés compuesto diario sobre TNA, no un costo/valor de compra-venta.
-        headers = ["Activo / Plataforma", "Saldo (USD)", "Saldo actual (USD)", "Rendimiento (USD)"]
-        formats = [None, USD_FMT, USD_FMT, USD_FMT]
+        # interés compuesto diario sobre TNA, no un costo/valor de compra-venta. Mismo
+        # cálculo en USD/Stable y en Pesos Líquidos, solo cambia la moneda.
+        moneda_label = "USD" if tipo == "usdt" else "ARS"
+        moneda_fmt = USD_FMT if tipo == "usdt" else ARS_FMT
+        headers = [
+            "Activo / Plataforma",
+            f"Saldo ({moneda_label})",
+            f"Saldo actual ({moneda_label})",
+            f"Rendimiento ({moneda_label})",
+        ]
+        formats = [None, moneda_fmt, moneda_fmt, moneda_fmt]
         data_rows = [
             [
                 a.get("label"),

@@ -81,6 +81,7 @@ function tableApi(table) {
 export const criptoApi = tableApi("activos_cripto");
 export const bolsaApi = tableApi("activos_bolsa");
 export const usdtApi = tableApi("activos_usdt");
+export const pesosApi = tableApi("activos_pesos");
 
 // ---------- evolución mensual (una fila por cuenta, no por tipo) ----------
 

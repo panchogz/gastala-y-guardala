@@ -95,13 +95,14 @@ export async function buildTarjetasExportPayload(incluirDetalleTarjetas) {
 // Excel quede idéntico al que se ve en la app.
 // ---------------------------------------------------------------------------
 
-const TIPO_ORDEN_AHORRO = { bolsa: 0, cripto: 1, usdt: 2 };
+const TIPO_ORDEN_AHORRO = { bolsa: 0, cripto: 1, usdt: 2, pesos: 3 };
 const porTipoYNombreAhorro = (a, b) =>
   TIPO_ORDEN_AHORRO[a.tipo] - TIPO_ORDEN_AHORRO[b.tipo] || (a.nombre || "").localeCompare(b.nombre || "", "es");
 
 function apiForTipoAhorro(tipo) {
   if (tipo === "bolsa") return ahorrosApi.bolsaApi;
   if (tipo === "cripto") return ahorrosApi.criptoApi;
+  if (tipo === "pesos") return ahorrosApi.pesosApi;
   return ahorrosApi.usdtApi;
 }
 
@@ -166,12 +167,27 @@ function computeUsdtAhorro(r, cotizacionUsdt) {
   return { costoTotal: saldoUsd, valorActual: saldoActual, rendimiento, usd: saldoActual, ars };
 }
 
+// Mismo cálculo pero en ARS (caja de ahorro remunerada) — misma fórmula de
+// interés compuesto diario, saldo_ars/tasa_tna en vez de saldo_usd/tasa_anual,
+// convertido a USD con la cotización dólar (CCL/MEP) en vez de la de USDT.
+function computePesosAhorro(r, cotizacion) {
+  const saldoArs = Number(r.saldo_ars) || 0;
+  const tasaTna = Number(r.tasa_tna) || 0;
+  const dias = diasEntreAhorro(r.fecha_ultimo_calculo, todayISO());
+  const saldoActual = saldoArs * Math.pow(1 + tasaTna / 100 / 365, dias);
+  const rendimiento = saldoActual - saldoArs;
+  const usd = cotizacion ? saldoActual / Number(cotizacion) : 0;
+  return { costoTotal: saldoArs, valorActual: saldoActual, rendimiento, usd, ars: saldoActual };
+}
+
 function cuentaCompute(cuenta, rows, cotizacion, cotizacionUsdt) {
   const compute =
     cuenta.tipo === "bolsa"
       ? (r) => computeBolsaAhorro(r, cuenta, cotizacion)
       : cuenta.tipo === "cripto"
       ? (r) => computeCriptoAhorro(r, cuenta, cotizacionUsdt)
+      : cuenta.tipo === "pesos"
+      ? (r) => computePesosAhorro(r, cotizacion)
       : (r) => computeUsdtAhorro(r, cotizacionUsdt);
   const enriched = rows.map((r) => ({ ...r, ...compute(r) }));
   return {
@@ -206,7 +222,7 @@ export async function buildAhorrosExportPayload(incluirDetalleAhorros) {
   const totalUSD = Object.values(cuentaTotales).reduce((a, t) => a + t.usd, 0);
   const totalARS = Object.values(cuentaTotales).reduce((a, t) => a + t.ars, 0);
 
-  const gruposPorTipo = ["bolsa", "cripto", "usdt"]
+  const gruposPorTipo = ["bolsa", "cripto", "usdt", "pesos"]
     .map((tipo) => cuentasOrdenadas.filter((c) => c.tipo === tipo))
     .filter((lista) => lista.length > 0);
 
@@ -263,7 +279,7 @@ export async function buildAhorrosExportPayload(incluirDetalleAhorros) {
     const activos = incluirDetalleAhorros
       ? [...enriched]
           .map((a) =>
-            c.tipo === "usdt"
+            c.tipo === "usdt" || c.tipo === "pesos"
               ? {
                   label: activoLabel(c, a),
                   costoTotal: a.costoTotal,

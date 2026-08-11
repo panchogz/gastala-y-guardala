@@ -7,13 +7,14 @@ export const TIPOS = [
   { value: "bolsa", label: "Bolsa" },
   { value: "cripto", label: "Cripto" },
   { value: "usdt", label: "USD / Stable" },
+  { value: "pesos", label: "Pesos" },
 ];
 
 export function tipoLabel(tipo) {
   return TIPOS.find((t) => t.value === tipo)?.label || tipo;
 }
 
-const MONEDA_DEFAULT_POR_TIPO = { bolsa: "ARS", cripto: "USD", usdt: "USD" };
+const MONEDA_DEFAULT_POR_TIPO = { bolsa: "ARS", cripto: "USD", usdt: "USD", pesos: "ARS" };
 
 export default function GestionarCuentas({ cuentas, onChange }) {
   const [open, setOpen] = useState(false);
