@@ -12,6 +12,7 @@ export default function AssetTable({
   onAdd,
   onUpdate,
   onDelete,
+  onImport,
   dense,
 }) {
   const enriched = rows.map((r) => ({ ...r, ...computeRow(r) }));
@@ -88,6 +89,11 @@ export default function AssetTable({
       <button className="btn-add" onClick={add}>
         + agregar
       </button>
+      {onImport && (
+        <button className="btn-import" onClick={onImport}>
+          Importar resumen
+        </button>
+      )}
     </div>
   );
 }

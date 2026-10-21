@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import AssetTable from "./AssetTable.jsx";
 import GestionarCuentas, { tipoLabel } from "./GestionarCuentas.jsx";
+import ImportarResumenModal from "../../components/ImportarResumenModal.jsx";
 import { Table, Cell } from "../../components/Table.jsx";
 import { fmtARS, fmtUSD, fmtPct, mesLabel, mesLabelCorto, todayISO } from "../../lib/helpers.js";
 import * as api from "./api.js";
@@ -42,6 +43,11 @@ export default function AhorrosView() {
 
   const [cuentas, setCuentas] = useState([]);
   const [activosPorCuenta, setActivosPorCuenta] = useState({});
+
+  // Cuenta (bolsa/cripto) para la que está abierto ImportarResumenModal, o
+  // null si está cerrado. Ver FEATURE_importacion_resumenes.md — Etapa 1.
+  const [importCuenta, setImportCuenta] = useState(null);
+  const [importMsg, setImportMsg] = useState(null);
 
   const [cotizacion, setCotizacion] = useState(1200);
   const [cotizacionUsdt, setCotizacionUsdt] = useState(1200);
@@ -98,6 +104,13 @@ export default function AhorrosView() {
   function setRowsFor(cuentaId) {
     return (updater) =>
       setActivosPorCuenta((prev) => ({ ...prev, [cuentaId]: updater(prev[cuentaId] || []) }));
+  }
+
+  function handleImportado(cuentaId, filasInsertadas) {
+    setRowsFor(cuentaId)((rows) => [...filasInsertadas, ...rows]);
+    setImportMsg(
+      `Se importaron ${filasInsertadas.length} activo${filasInsertadas.length === 1 ? "" : "s"}.`
+    );
   }
 
   async function handleCotizacionBlur() {
@@ -513,6 +526,7 @@ export default function AhorrosView() {
   return (
     <div>
       {error && <div className="error-banner">{error}</div>}
+      {importMsg && <div className="success-banner">{importMsg}</div>}
 
       <div className="stat-row" style={{ marginBottom: 20, alignItems: "flex-end" }}>
         <label className="cotiz-input">
@@ -568,6 +582,10 @@ export default function AhorrosView() {
                 }
                 onUpdate={(id, patch) => api.bolsaApi.update(id, patch)}
                 onDelete={(id) => api.bolsaApi.remove(id)}
+                onImport={() => {
+                  setImportMsg(null);
+                  setImportCuenta({ id: c.id, nombre: c.nombre, moneda: c.moneda, tipo: "bolsa" });
+                }}
                 columns={[
                   { key: "ticker", label: "Ticker", editable: true },
                   { key: "cantidad", label: "Cantidad", editable: true, type: "number", align: "right" },
@@ -611,6 +629,10 @@ export default function AhorrosView() {
                 }
                 onUpdate={(id, patch) => api.criptoApi.update(id, patch)}
                 onDelete={(id) => api.criptoApi.remove(id)}
+                onImport={() => {
+                  setImportMsg(null);
+                  setImportCuenta({ id: c.id, nombre: c.nombre, moneda: c.moneda, tipo: "cripto" });
+                }}
                 columns={[
                   { key: "activo", label: "Activo", editable: true },
                   { key: "cantidad", label: "Cantidad", editable: true, type: "number", align: "right" },
@@ -989,6 +1011,15 @@ export default function AhorrosView() {
             </>
           )}
         </>
+      )}
+
+      {importCuenta && (
+        <ImportarResumenModal
+          cuenta={importCuenta}
+          existingRows={activosPorCuenta[importCuenta.id] || []}
+          onImported={(filas) => handleImportado(importCuenta.id, filas)}
+          onClose={() => setImportCuenta(null)}
+        />
       )}
     </div>
   );
