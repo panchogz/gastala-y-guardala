@@ -173,11 +173,11 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
 .manage-cards-add { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; border-top: 1px solid #2A313B; padding-top: 14px; }
 .manage-cards-add input[type="text"] {
   background: #12161B; border: 1px solid #2A313B; color: #E8E6E1;
-  padding: 6px 8px; border-radius: 6px; font-size: 13px; min-width: 180px; flex: 1;
+  padding: 6px 8px; border-radius: 6px; font-size: 13px; flex: 1 1 180px; min-width: 0;
 }
 .manage-cards-add select {
   background: #12161B; border: 1px solid #2A313B; color: #E8E6E1;
-  padding: 6px 8px; border-radius: 6px; font-size: 13px;
+  padding: 6px 8px; border-radius: 6px; font-size: 13px; flex: 0 1 auto; min-width: 0;
 }
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(0, 0, 0, 0.55);
