@@ -69,6 +69,21 @@ function tableApi(table) {
       const user_id = await getUserId();
       return queuedInsert(table, { ...row, cuenta_id: cuentaId, user_id });
     },
+    // Insert directo (sin cola offline) de varias filas en una sola llamada,
+    // todas o ninguna: lo usa la importación de resúmenes, que ya exige
+    // conexión en vez de encolar. Ver FEATURE_importacion_resumenes.md.
+    async insertMany(cuentaId, rows) {
+      const user_id = await getUserId();
+      const payload = rows.map((r) => ({
+        ...r,
+        cuenta_id: cuentaId,
+        user_id,
+        id: crypto.randomUUID(),
+      }));
+      const { data, error } = await supabase.from(table).insert(payload).select();
+      if (error) throw error;
+      return data;
+    },
     async update(id, patch) {
       await queuedUpdate(table, "id", id, patch);
     },
