@@ -80,6 +80,17 @@ export async function deleteCuota(id) {
   await queuedDelete("tarjeta_cuotas", "id", id);
 }
 
+// Insert directo (sin cola offline) de varias filas en una sola llamada,
+// todas o ninguna: lo usa la importación de resúmenes, que ya exige
+// conexión en vez de encolar. Ver FEATURE_importacion_resumenes.md.
+export async function insertManyCuotas(tarjetaId, rows) {
+  const user_id = await getUserId();
+  const payload = rows.map((r) => ({ ...r, tarjeta_id: tarjetaId, user_id, id: crypto.randomUUID() }));
+  const { data, error } = await supabase.from("tarjeta_cuotas").insert(payload).select();
+  if (error) throw error;
+  return data;
+}
+
 // ---------- gastos en dólares ----------
 
 export async function fetchDolares(tarjetaId) {
@@ -105,6 +116,14 @@ export async function deleteDolar(id) {
   await queuedDelete("tarjeta_dolares", "id", id);
 }
 
+export async function insertManyDolares(tarjetaId, rows) {
+  const user_id = await getUserId();
+  const payload = rows.map((r) => ({ ...r, tarjeta_id: tarjetaId, user_id, id: crypto.randomUUID() }));
+  const { data, error } = await supabase.from("tarjeta_dolares").insert(payload).select();
+  if (error) throw error;
+  return data;
+}
+
 // ---------- gastos recurrentes / suscripciones ----------
 
 export async function fetchRecurrentes(tarjetaId) {
@@ -128,6 +147,14 @@ export async function updateRecurrente(id, patch) {
 
 export async function deleteRecurrente(id) {
   await queuedDelete("tarjeta_recurrentes", "id", id);
+}
+
+export async function insertManyRecurrentes(tarjetaId, rows) {
+  const user_id = await getUserId();
+  const payload = rows.map((r) => ({ ...r, tarjeta_id: tarjetaId, user_id, id: crypto.randomUUID() }));
+  const { data, error } = await supabase.from("tarjeta_recurrentes").insert(payload).select();
+  if (error) throw error;
+  return data;
 }
 
 // ---------- total mensual ----------
