@@ -79,12 +79,15 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
 }
 .tab-btn.active { color: #E8E6E1; border-bottom-color: #35D0A0; }
 .tab-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; min-width: 0; }
-@media (max-width: 1500px) { .grid-2 { grid-template-columns: minmax(0, 1fr); } }
+/* Grilla de tarjetas (TarjetasView): auto-fit en vez de un breakpoint fijo
+   en 2 columnas — con 1 tarjeta ocupa todo el ancho (no queda una columna
+   vacía al lado), con 2+ se acomodan solas lado a lado mientras entren
+   columnas de al menos 440px, y en mobile (sin ancho para eso) cae sola a
+   una columna, sin necesidad de un media query aparte. */
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(440px, 100%), 1fr)); gap: 20px; min-width: 0; }
 
-/* Vista forzada manualmente desde el botón del header: tiene prioridad sobre el
-   media query de arriba (mayor especificidad), sin importar el ancho real. */
-.app-root.force-desktop .grid-2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+/* Vista forzada manualmente desde el botón del header: tiene prioridad sobre
+   la regla de arriba (mayor especificidad), sin importar el ancho real. */
 .app-root.force-mobile .grid-2 { grid-template-columns: minmax(0, 1fr); }
 .card-panel, .asset-block {
   background: #1D232B; border-top: 3px solid #5B9BE8; border-radius: 10px;
