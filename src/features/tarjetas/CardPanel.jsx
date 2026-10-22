@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Table, Cell } from "../../components/Table.jsx";
+import ImportarResumenModal from "../../components/ImportarResumenModal.jsx";
 import { fmtARS, fmtUSD, fmtPct, fullMonthsBetween, todayISO } from "../../lib/helpers.js";
 import * as api from "./api.js";
 
@@ -12,6 +13,10 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
   const [cuotas, setCuotas] = useState([]);
   const [dolares, setDolares] = useState([]);
   const [recurrentes, setRecurrentes] = useState([]);
+
+  // Modal de importación de resumen (Etapa 2). Ver FEATURE_importacion_resumenes.md.
+  const [importOpen, setImportOpen] = useState(false);
+  const [importMsg, setImportMsg] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -212,6 +217,14 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
     }
   }
 
+  function handleImportado({ cuotas: nuevasCuotas, dolares: nuevosDolares, recurrentes: nuevosRecurrentes }) {
+    if (nuevasCuotas.length) setCuotas((rows) => [...nuevasCuotas, ...rows]);
+    if (nuevosDolares.length) setDolares((rows) => [...nuevosDolares, ...rows]);
+    if (nuevosRecurrentes.length) setRecurrentes((rows) => [...rows, ...nuevosRecurrentes]);
+    const total = nuevasCuotas.length + nuevosDolares.length + nuevosRecurrentes.length;
+    setImportMsg(`Se importaron ${total} consumo${total === 1 ? "" : "s"}.`);
+  }
+
   async function handleRegistrar() {
     setSaving(true);
     setError(null);
@@ -260,7 +273,19 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
         </div>
       </div>
 
+      <button
+        className="btn-import"
+        style={{ marginLeft: 0 }}
+        onClick={() => {
+          setImportMsg(null);
+          setImportOpen(true);
+        }}
+      >
+        Importar resumen
+      </button>
+
       {error && <div className="error-banner">{error}</div>}
+      {importMsg && <div className="success-banner">{importMsg}</div>}
 
       <div className="stat-row">
         <div className="stat">
@@ -469,6 +494,16 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
       >
         Registrar este mes en el total mensual
       </button>
+
+      {importOpen && (
+        <ImportarResumenModal
+          tipo="tarjeta"
+          tarjeta={{ id: tarjetaId, nombre: name }}
+          existingRows={{ cuotas, dolares, recurrentes }}
+          onImported={handleImportado}
+          onClose={() => setImportOpen(false)}
+        />
+      )}
     </div>
   );
 }
