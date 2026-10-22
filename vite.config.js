@@ -15,12 +15,15 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: "autoUpdate",
-      // El registro corre a mano desde src/main.jsx (virtual:pwa-register),
-      // que sí maneja detectar una versión nueva y recargar sola. El script
-      // que este plugin inyecta por defecto (injectRegister: "auto") solo
-      // hace un register() plano sin esa lógica — se desactiva para no
-      // terminar con dos registros del mismo SW.
+      // "prompt" (no "autoUpdate"): un SW nuevo se queda esperando y recién
+      // se activa cuando el usuario confirma desde el toast de main.jsx, no
+      // solo — podría pisar un formulario a medio completar o una
+      // importación en revisión. El registro corre a mano desde src/main.jsx
+      // (virtual:pwa-register), que maneja ese flujo. El script que este
+      // plugin inyecta por defecto (injectRegister: "auto") solo hace un
+      // register() plano sin esa lógica — se desactiva para no terminar con
+      // dos registros del mismo SW.
+      registerType: "prompt",
       injectRegister: false,
       includeAssets: ["apple-touch-icon.png"],
       manifest: {
@@ -45,6 +48,12 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Sin esto, un SW nuevo activado no toma control de una pestaña/PWA
+        // YA abierta (sigue controlada por el SW viejo hasta que navegue de
+        // cero): el evento "controllerchange" que dispara la recarga en
+        // main.jsx nunca llegaba a ocurrir, y la app quedaba mostrando la
+        // versión vieja hasta limpiar caché o desregistrar el SW a mano.
+        clientsClaim: true,
         globPatterns: ["**/*.{js,css,html,png,svg,ico}"],
         // Los splash screens de iOS (apple-touch-startup-image) los lee Safari
         // directo del disco solo al instalar el ícono, nunca en runtime — no

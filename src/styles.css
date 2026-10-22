@@ -216,6 +216,28 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
   background: #1C3324; border: 1px solid #35D0A0; color: #C6F6D9;
   padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 16px;
 }
+
+/* Toast de "nueva versión disponible" (src/main.jsx, fuera del árbol de
+   React — se inyecta directo al body). Fijo abajo, no bloquea el resto de
+   la pantalla (ni un modal abierto arriba), se cierra solo al recargar o al
+   tocar la ×. */
+.update-toast {
+  position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 200;
+  max-width: 420px; margin: 0 auto;
+  display: flex; align-items: center; gap: 10px;
+  background: #1D232B; border: 1px solid #5B9BE8; border-radius: 10px;
+  padding: 12px 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  color: #E8E6E1; font-size: 13px;
+}
+.update-toast span { flex: 1; }
+.update-toast-btn {
+  flex: none; background: #5B9BE8; border: none; color: #12161B; font-weight: 700;
+  padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;
+}
+.update-toast-close {
+  flex: none; background: none; border: none; color: #8B93A1; cursor: pointer;
+  font-size: 16px; line-height: 1; padding: 0 2px;
+}
 .manage-cards-edit { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1; }
 .manage-cards-edit input[type="text"] {
   background: #12161B; border: 1px solid #2A313B; color: #E8E6E1;
@@ -264,4 +286,6 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
   .modal-box-wide { max-height: 92vh; }
   .import-prompt { font-size: 11px; max-height: 180px; }
   .btn-import { margin-left: 0; margin-top: 6px; }
+
+  .update-toast { left: 10px; right: 10px; bottom: 10px; padding: 10px 12px; font-size: 12px; }
 }
