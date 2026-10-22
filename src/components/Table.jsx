@@ -5,9 +5,7 @@ export function Table({ columns, children, footer, dense }) {
         <thead>
           <tr>
             {columns.map((c) => (
-              <th key={c.key} style={{ textAlign: c.align || "left" }}>
-                {c.label}
-              </th>
+              <th key={c.key}>{c.label}</th>
             ))}
             <th style={{ width: 32 }}></th>
           </tr>

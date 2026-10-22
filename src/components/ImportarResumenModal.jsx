@@ -417,9 +417,9 @@ function RevisionTenencia({ filas, etiquetaCampo, cuenta, actualizarFila }) {
           <tr>
             <th></th>
             <th>{etiquetaCampo}</th>
-            <th style={{ textAlign: "right" }}>Cantidad</th>
-            <th style={{ textAlign: "right" }}>Precio compra ({cuenta.moneda})</th>
-            <th style={{ textAlign: "right" }}>Precio actual ({cuenta.moneda})</th>
+            <th>Cantidad</th>
+            <th>Precio compra ({cuenta.moneda})</th>
+            <th>Precio actual ({cuenta.moneda})</th>
           </tr>
         </thead>
         <tbody>
@@ -513,8 +513,8 @@ function RevisionTarjeta({ filas, actualizarFila }) {
                   <tr>
                     <th></th>
                     <th>{key === "recurrentes" ? "Concepto" : "Comercio"}</th>
-                    <th style={{ textAlign: "right" }}>{key === "dolares" ? "Monto (USD)" : "Monto"}</th>
-                    {key === "cuotas_curso" && <th style={{ textAlign: "right" }}>Cuota</th>}
+                    <th>{key === "dolares" ? "Monto (USD)" : "Monto"}</th>
+                    {key === "cuotas_curso" && <th>Cuota</th>}
                     {key !== "recurrentes" && <th>Fecha</th>}
                   </tr>
                 </thead>

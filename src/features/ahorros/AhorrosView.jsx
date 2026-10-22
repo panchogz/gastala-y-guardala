@@ -818,10 +818,10 @@ export default function AhorrosView() {
               <thead>
                 <tr>
                   <th>Activo</th>
-                  <th style={{ textAlign: "right" }}>USD</th>
-                  <th style={{ textAlign: "right" }}>ARS</th>
-                  <th style={{ textAlign: "right" }}>% de la cuenta</th>
-                  <th style={{ textAlign: "right" }}>% del total</th>
+                  <th>USD</th>
+                  <th>ARS</th>
+                  <th>% de la cuenta</th>
+                  <th>% del total</th>
                 </tr>
               </thead>
               <tbody>
@@ -971,11 +971,9 @@ export default function AhorrosView() {
                     <tr>
                       <th>Mes</th>
                       {cuentasEnEvolucion.map((c) => (
-                        <th key={c.id} style={{ textAlign: "right" }}>
-                          {c.nombre}
-                        </th>
+                        <th key={c.id}>{c.nombre}</th>
                       ))}
-                      <th style={{ textAlign: "right" }}>Total {monedaEvolucion}</th>
+                      <th>Total {monedaEvolucion}</th>
                     </tr>
                   </thead>
                   <tbody>

@@ -118,7 +118,7 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
 .subhead { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #8B93A1; margin: 10px 0 8px 0; font-weight: 700; }
 .tbl-wrap { overflow-x: auto; max-width: 100%; }
 .tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
-.tbl th { text-align: left; color: #8B93A1; font-weight: 600; font-size: 11px; text-transform: uppercase; padding: 6px 6px; border-bottom: 1px solid #2A313B; white-space: nowrap; }
+.tbl th { text-align: center; color: #8B93A1; font-weight: 600; font-size: 11px; text-transform: uppercase; padding: 6px 6px; border-bottom: 1px solid #2A313B; white-space: nowrap; }
 .tbl td { padding: 5px 6px; border-bottom: 1px solid #21262E; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .cell-input {
   background: #12161B; border: 1px solid #2A313B; color: #5B9BE8;

@@ -77,11 +77,9 @@ export default function TotalMensual({ rows, tarjetas }) {
             <tr>
               <th>Mes</th>
               {tarjetas.map((t) => (
-                <th key={t.id} style={{ textAlign: "right" }}>
-                  {t.nombre}
-                </th>
+                <th key={t.id}>{t.nombre}</th>
               ))}
-              <th style={{ textAlign: "right" }}>Total</th>
+              <th>Total</th>
             </tr>
           </thead>
           <tbody>
