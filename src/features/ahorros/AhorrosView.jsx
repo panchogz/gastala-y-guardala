@@ -265,14 +265,28 @@ export default function AhorrosView() {
     }
   }
 
-  // "Saldo aportado (USD)" (saldo_usd) editado in place, igual que cualquier
-  // otro campo de la app: siempre muestra el valor guardado, nunca vacío.
-  // - Valor NUEVO mayor al guardado -> se interpreta como aporte nuevo: la
-  //   diferencia se suma DESPUÉS de capitalizar el interés generado hasta hoy
-  //   con la tasa vigente (mismo "cierre" que el cambio de tasa).
-  // - Valor NUEVO menor -> corrección directa del saldo (typo de carga, no un
-  //   retiro): se pisa saldo_usd tal cual, sin capitalizar ni tocar
-  //   fecha_ultimo_calculo.
+  // "Saldo aportado" (saldo_usd en USD/Stable, saldo_ars en Pesos) editado in
+  // place: cualquier valor que se escriba (suba o baje) pasa a ser la base
+  // nueva de cálculo, con fecha_ultimo_calculo reseteada a hoy — sin
+  // capitalizar nada acá. No hace falta: quien edita este campo está
+  // reemplazando el saldo tal cual, no aportando una diferencia; si quiere
+  // conservar el interés generado hasta hoy antes de un retiro, el número a
+  // escribir es el que ya se ve en "Saldo actual" (columna de al lado) menos
+  // lo retirado. Comparte la misma mecánica entre USD/Stable y Pesos —
+  // cambia solo el nombre del campo de saldo y la API de la tabla.
+  async function handleSaldoAportadoBlur({ row, editValue, campoSaldo, tableApi, setRows }) {
+    const nuevoValor = Number(editValue) || 0;
+    const valorViejo = Number(row[campoSaldo]) || 0;
+    if (nuevoValor === valorViejo) return; // sin cambio real
+    const patch = { [campoSaldo]: nuevoValor, fecha_ultimo_calculo: todayISO() };
+    try {
+      await tableApi.update(row.id, patch);
+      setRows((rows) => rows.map((r) => (r.id === row.id ? { ...r, ...patch } : r)));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
   async function handleSaldoBlur(cuentaId, r) {
     const editValue = editingSaldo[r.id];
     if (editValue === undefined) return;
@@ -281,24 +295,13 @@ export default function AhorrosView() {
       delete next[r.id];
       return next;
     });
-    const nuevoValor = Number(editValue) || 0;
-    const saldoViejo = Number(r.saldo_usd) || 0;
-    if (nuevoValor === saldoViejo) return; // sin cambio real
-
-    let patch;
-    if (nuevoValor > saldoViejo) {
-      const diferencia = nuevoValor - saldoViejo;
-      const { saldoActual } = usdtCompute(r);
-      patch = { saldo_usd: saldoActual + diferencia, fecha_ultimo_calculo: todayISO() };
-    } else {
-      patch = { saldo_usd: nuevoValor };
-    }
-    try {
-      await api.usdtApi.update(r.id, patch);
-      setRowsFor(cuentaId)((rows) => rows.map((row) => (row.id === r.id ? { ...row, ...patch } : row)));
-    } catch (e) {
-      setError(e.message);
-    }
+    await handleSaldoAportadoBlur({
+      row: r,
+      editValue,
+      campoSaldo: "saldo_usd",
+      tableApi: api.usdtApi,
+      setRows: setRowsFor(cuentaId),
+    });
   }
 
   // ---- pesos (caja de ahorro remunerada): mismísimo mecanismo que USD/Stable
@@ -377,24 +380,13 @@ export default function AhorrosView() {
       delete next[r.id];
       return next;
     });
-    const nuevoValor = Number(editValue) || 0;
-    const saldoViejo = Number(r.saldo_ars) || 0;
-    if (nuevoValor === saldoViejo) return;
-
-    let patch;
-    if (nuevoValor > saldoViejo) {
-      const diferencia = nuevoValor - saldoViejo;
-      const { saldoActual } = pesosCompute(r);
-      patch = { saldo_ars: saldoActual + diferencia, fecha_ultimo_calculo: todayISO() };
-    } else {
-      patch = { saldo_ars: nuevoValor };
-    }
-    try {
-      await api.pesosApi.update(r.id, patch);
-      setRowsFor(cuentaId)((rows) => rows.map((row) => (row.id === r.id ? { ...row, ...patch } : row)));
-    } catch (e) {
-      setError(e.message);
-    }
+    await handleSaldoAportadoBlur({
+      row: r,
+      editValue,
+      campoSaldo: "saldo_ars",
+      tableApi: api.pesosApi,
+      setRows: setRowsFor(cuentaId),
+    });
   }
 
   const resumen = useMemo(() => {
