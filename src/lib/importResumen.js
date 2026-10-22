@@ -176,3 +176,18 @@ export function validarTarjeta(json) {
 
   return { fecha_cierre, consumos, descartadas };
 }
+
+// Resta n meses a una fecha ISO (YYYY-MM-DD) conservando el día del mes
+// (clampeado al último día si el mes resultante es más corto). La revisión
+// de compras en cuotas la usa para fecha = fecha_cierre − (cuota_actual−1)
+// meses, de forma que fullMonthsBetween(fecha, hoy)+1 (CardPanel.jsx) dé la
+// misma cuota_actual que informó el resumen.
+export function restarMeses(fechaISO, n) {
+  const d = new Date(fechaISO + "T00:00:00");
+  const dia = d.getDate();
+  d.setDate(1); // evita que setMonth se "pase" de mes por overflow de día
+  d.setMonth(d.getMonth() - n);
+  const ultimoDiaDelMes = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(dia, ultimoDiaDelMes));
+  return d.toISOString().slice(0, 10);
+}

@@ -208,6 +208,7 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
 .import-note { font-size: 11px; padding-top: 0; padding-bottom: 8px; }
 .import-note-yellow { color: #E8A855; }
 .import-note-red { color: #FF8A8A; }
+.import-note-info { color: #8B93A1; }
 .success-banner {
   background: #1C3324; border: 1px solid #35D0A0; color: #C6F6D9;
   padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 16px;

@@ -1015,6 +1015,7 @@ export default function AhorrosView() {
 
       {importCuenta && (
         <ImportarResumenModal
+          tipo="tenencia"
           cuenta={importCuenta}
           existingRows={activosPorCuenta[importCuenta.id] || []}
           onImported={(filas) => handleImportado(importCuenta.id, filas)}
