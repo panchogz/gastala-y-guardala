@@ -130,6 +130,7 @@ export default function Login({ onVerified }) {
               <input
                 type="text"
                 inputMode="numeric"
+                pattern="[0-9]*"
                 autoComplete="one-time-code"
                 placeholder="Código"
                 value={code}
@@ -137,7 +138,6 @@ export default function Login({ onVerified }) {
                 required
                 autoFocus
                 minLength={4}
-                maxLength={10}
               />
               <button
                 className="btn-register"
