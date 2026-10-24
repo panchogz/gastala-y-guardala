@@ -20,6 +20,13 @@ se calculan.
   tarjeta el precio al que comprás los dólares. El "% del salario" se calcula contra
   ese total completo, con un único salario neto que se carga arriba de las tarjetas:
   cada tarjeta muestra su %, y la franja de arriba el total de todas las tarjetas.
+- **Gráfico y tabla de Total mensual:** el gráfico muestra una ventana fija de meses
+  calendario: los 2 meses anteriores, el actual y los 3 próximos (punteados, lo ya
+  comprometido). El mes actual se calcula en vivo; un mes que no registraste queda como
+  hueco, la línea no se une. La tabla de la app muestra los últimos 12 meses registrados,
+  con "Total 12 meses" (suma solo esas filas). Las filas "Comprometido" van aparte, en
+  gris, y no entran en ningún total. El Excel trae toda la historia, y también las filas
+  "Comprometido" fuera de los totales.
 
 ## Ahorros
 
@@ -48,6 +55,11 @@ se calculan.
 > deflactado según cuánto se movió el dólar desde entonces — no representa lo que
 > realmente pagaste. Por eso la app calcula la ganancia/pérdida siempre en la moneda
 > original de la compra, sin mezclar.
+
+- **Gráfico y tabla de Evolución mensual:** el gráfico muestra una ventana fija de 6 meses
+  calendario (los 5 anteriores y el actual), sin proyección. El mes actual se calcula en
+  vivo; un mes sin foto guardada queda como hueco. La tabla de la app muestra los últimos
+  12 meses con foto; el Excel trae toda la historia.
 
 ## USD/Stable y Pesos Líquidos — interés compuesto con TNA
 
