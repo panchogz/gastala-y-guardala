@@ -11,6 +11,28 @@ export function fullMonthsBetween(fromISO, toDate) {
   return Math.max(months, 0);
 }
 
+// Estado de una compra en cuotas (row: { fecha, monto, cuotas }) a una fecha
+// dada. nro = cuota que corresponde a ese mes (1 = mes de la compra), con el
+// mismo criterio de día del mes que fullMonthsBetween. Regla: una compra de N
+// cuotas suma en las cuotas 1..N y deja de sumar desde la N+1 (activa=false).
+// Única fuente de este cálculo: lo usan CardPanel (tabla y total del mes) y
+// la proyección de compromisos futuros.
+export function cuotaInfo(row, date) {
+  const total = Number(row.cuotas) || 1;
+  const meses = fullMonthsBetween(row.fecha, date);
+  // Fecha vacía/inválida: se toma como cuota 1 (sigue sumando, como antes).
+  const nro = (Number.isFinite(meses) ? meses : 0) + 1;
+  const cuotaActual = Math.min(total, nro);
+  const montoPorCuota = (Number(row.monto) || 0) / total;
+  return {
+    nro,
+    activa: nro <= total,
+    cuotaActual,
+    cuotasPendientes: total - cuotaActual,
+    montoPorCuota,
+  };
+}
+
 export const fmtARS = (n) =>
   (Number(n) || 0).toLocaleString("es-AR", {
     style: "currency",

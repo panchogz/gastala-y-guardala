@@ -1,6 +1,6 @@
 import * as api from "../features/tarjetas/api.js";
 import * as ahorrosApi from "../features/ahorros/api.js";
-import { fullMonthsBetween, currentMonthKey, todayISO } from "./helpers.js";
+import { cuotaInfo, currentMonthKey, todayISO } from "./helpers.js";
 
 // El export no reusa el estado ya cargado en TarjetasView/CardPanel (queda
 // repartido por tarjeta dentro de cada CardPanel, no centralizado) — vuelve a
@@ -12,12 +12,7 @@ async function buildCuotaDetalle(tarjetaId) {
   const rows = await api.fetchCuotas(tarjetaId);
   const today = new Date();
   return rows.map((r) => {
-    const cuotaActual = Math.min(
-      Number(r.cuotas) || 1,
-      Math.max(1, fullMonthsBetween(r.fecha, today) + 1)
-    );
-    const cuotasPendientes = (Number(r.cuotas) || 1) - cuotaActual;
-    const montoPorCuota = (Number(r.monto) || 0) / (Number(r.cuotas) || 1);
+    const { cuotaActual, cuotasPendientes, montoPorCuota } = cuotaInfo(r, today);
     const saldoPagado = montoPorCuota * cuotaActual;
     return {
       fecha: r.fecha,

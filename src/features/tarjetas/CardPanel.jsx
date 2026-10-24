@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Table, Cell } from "../../components/Table.jsx";
 import ImportarResumenModal from "../../components/ImportarResumenModal.jsx";
 import MobileEntryForm from "../../components/MobileEntryForm.jsx";
-import { fmtARS, fmtUSD, fmtPct, fullMonthsBetween, todayISO } from "../../lib/helpers.js";
+import { fmtARS, fmtUSD, fmtPct, cuotaInfo, todayISO } from "../../lib/helpers.js";
 import { useIsMobile } from "../../lib/useIsMobile.js";
 import * as api from "./api.js";
 
@@ -89,15 +89,10 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
   const today = new Date();
 
   const cuotasEnriched = cuotas.map((r) => {
-    const cuotaActual = Math.min(
-      Number(r.cuotas) || 1,
-      Math.max(1, fullMonthsBetween(r.fecha, today) + 1)
-    );
-    const cuotasPendientes = (Number(r.cuotas) || 1) - cuotaActual;
-    const montoPorCuota = (Number(r.monto) || 0) / (Number(r.cuotas) || 1);
+    const { activa, cuotaActual, cuotasPendientes, montoPorCuota } = cuotaInfo(r, today);
     const saldoPagado = montoPorCuota * cuotaActual;
     const saldoPendiente = montoPorCuota * cuotasPendientes;
-    return { ...r, cuotaActual, cuotasPendientes, montoPorCuota, saldoPagado, saldoPendiente };
+    return { ...r, activa, cuotaActual, cuotasPendientes, montoPorCuota, saldoPagado, saldoPendiente };
   });
 
   const dolarEnriched = dolares.map((r) => ({
@@ -105,7 +100,9 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
     montoARS: (Number(r.monto) || 0) * (Number(config.cotizacion) || 0),
   }));
 
-  const totalCuotas = cuotasEnriched.reduce((a, r) => a + r.montoPorCuota, 0);
+  // Solo las compras con una cuota en este mes: las ya terminadas (cuota N+1
+  // en adelante) siguen en la tabla pero no suman al total.
+  const totalCuotas = cuotasEnriched.reduce((a, r) => a + (r.activa ? r.montoPorCuota : 0), 0);
   const totalDolares = dolarEnriched.reduce((a, r) => a + r.montoARS, 0);
   const totalRecurrentes = recurrentes.reduce(
     (a, r) => a + (r.activo ? Number(r.monto) || 0 : 0),
