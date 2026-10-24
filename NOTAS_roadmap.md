@@ -52,14 +52,7 @@
     (campo único, se carga una vez). El cierre exacto mes a mes se descartó: cambia
     todos los meses y obliga a una carga manual que se olvida.
 
-12. **Indicador de datos desactualizados.** Varios valores se cargan a mano y, si quedan
-    viejos, distorsionan los totales sin que se note. Guardar un timestamp por campo
-    (vía trigger de Postgres, que lo actualiza solo al cambiar el valor) para: precio
-    actual de activos, cotización de cada tarjeta, cotización USDT y TNA de USD/Stable y
-    Pesos. Umbral: 7 días para precios y cotizaciones, 30 días para TNA. Pasado el
-    umbral, un punto ámbar junto al valor; al tocarlo muestra "Sin actualizar hace X
-    días" y permite confirmar que sigue al día sin cambiar el valor (renueva el
-    timestamp).
+12. ~~Indicador de datos desactualizados~~ — resuelto, ver "Resuelto".
 
 ## Testeo y QA
 
@@ -113,6 +106,18 @@
 - `GUIA_DE_USO.md` (interna).
 
 ## Resuelto
+
+- **Indicador de datos desactualizados (ex pendiente 12).** Timestamp por campo
+  (`<campo>_at`) mantenido por triggers de Postgres (`supabase_desactualizados.sql`):
+  insert → now(); update → now() solo si el valor cambió (IS DISTINCT FROM), si no se
+  conserva, lo que permite confirmar sin cambiar el valor. Campos: precio actual de
+  Bolsa/Cripto, cotización de cada tarjeta, CCL/MEP, USDT y TNA de USD/Stable y Pesos.
+  Umbrales en `src/lib/desactualizado.js`: 7 días precios/cotizaciones, 30 TNA (días
+  completos). Punto ámbar con aria-label y popover (el mismo de HelpTip, extraído a
+  `Popover.jsx`): "Sin actualizar hace X días" + "Sigue igual" (por la cola offline);
+  también "Sin cargar" (precio/cotización en 0) y "Todavía no la cargaste: se está
+  usando $X por defecto" (sin fila). Trigger probado contra Postgres 16 (PGlite). Commit
+  `2b72e71`.
 
 - **Mejoras a la importación de resúmenes de tarjeta (ex pendiente 10).** Fecha de
   cierre siempre visible en la revisión, precargada con la del JSON; si falta o es
