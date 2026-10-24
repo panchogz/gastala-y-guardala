@@ -39,7 +39,15 @@ const ENTRY_FIELDS = {
   },
 };
 
-export default function CardPanel({ tarjetaId, name, accent, onRegistered, onTotalsChange }) {
+export default function CardPanel({
+  tarjetaId,
+  name,
+  accent,
+  onRegistered,
+  onTotalsChange,
+  prefillCuota,
+  onPrefillDone,
+}) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -56,6 +64,21 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered, onTot
   // Alta mobile abierta: null | "cuotas" | "dolares" | "recurrentes".
   const isMobile = useIsMobile();
   const [entryTable, setEntryTable] = useState(null);
+  // Valores iniciales del alta (solo cuando viene precargada de la calculadora
+  // "¿Cuotas o contado?"; ahí se abre también en desktop, como modal).
+  const [entryInitial, setEntryInitial] = useState(null);
+
+  useEffect(() => {
+    if (!prefillCuota || loading) return;
+    setEntryInitial(prefillCuota);
+    setEntryTable("cuotas");
+    onPrefillDone?.();
+  }, [prefillCuota, loading, onPrefillDone]);
+
+  function closeEntry() {
+    setEntryTable(null);
+    setEntryInitial(null);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -564,11 +587,12 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered, onTot
           title={ENTRY_FIELDS[entryTable].title}
           accent={accent}
           fields={ENTRY_FIELDS[entryTable].fields}
+          initialValues={entryInitial}
           onSubmit={async (values) => {
             await ADD_FN[entryTable](values);
-            setEntryTable(null);
+            closeEntry();
           }}
-          onCancel={() => setEntryTable(null)}
+          onCancel={closeEntry}
         />
       )}
 

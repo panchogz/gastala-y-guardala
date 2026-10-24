@@ -91,6 +91,12 @@ export function mismoDiaEnMeses(date, k) {
 export const monthKeyOf = (date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 
+// Conversión de tasas con capitalización diaria (mismo criterio que el
+// interés de USD/Stable y Pesos Líquidos). En fracción, no en %: 0.29 = 29%.
+// i = (1 + TNA/365)^(365/12) − 1, y su inversa.
+export const tnaAMensual = (tna) => Math.pow(1 + tna / 365, 365 / 12) - 1;
+export const mensualATna = (i) => 365 * (Math.pow(1 + i, 12 / 365) - 1);
+
 // Montos compactos para ejes de gráficos (ARS o USD, la moneda la aclara el
 // gráfico): millones con "M", hasta un decimal. Con usarK (mobile, poco
 // ancho) también los miles con "k"; sin usarK (desktop) los miles van

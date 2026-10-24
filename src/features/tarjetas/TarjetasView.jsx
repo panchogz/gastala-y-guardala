@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import CardPanel from "./CardPanel.jsx";
 import TotalMensual from "./TotalMensual.jsx";
 import GestionarTarjetas from "./GestionarTarjetas.jsx";
+import CuotasOContado from "./CuotasOContado.jsx";
 import * as api from "./api.js";
 
 export default function TarjetasView() {
@@ -12,6 +13,11 @@ export default function TarjetasView() {
   // Totales en vivo que informa cada CardPanel: { [tarjetaId]: { actual, futuros: [m1, m2, m3] } }.
   // Alimentan el mes actual y los 3 meses a futuro del gráfico de Total mensual.
   const [live, setLive] = useState({});
+  const [calcOpen, setCalcOpen] = useState(false);
+  // Alta precargada que pidió la calculadora: { tarjetaId, valores } hasta que
+  // el CardPanel de esa tarjeta la abre (ver prefillCuota en CardPanel).
+  const [prefill, setPrefill] = useState(null);
+  const handlePrefillDone = useCallback(() => setPrefill(null), []);
 
   // Estable (deps []) y sin setear si los números no cambiaron: evita que el
   // efecto de CardPanel que la llama dispare renders en loop.
@@ -76,7 +82,22 @@ export default function TarjetasView() {
     <div>
       {error && <div className="error-banner">{error}</div>}
 
-      <GestionarTarjetas tarjetas={tarjetas} onChange={handleTarjetasChange} />
+      <GestionarTarjetas tarjetas={tarjetas} onChange={handleTarjetasChange}>
+        <button className="btn-import" onClick={() => setCalcOpen(true)}>
+          ¿Cuotas o contado?
+        </button>
+      </GestionarTarjetas>
+
+      {calcOpen && (
+        <CuotasOContado
+          tarjetas={tarjetas}
+          onCargar={(tarjetaId, valores) => {
+            setCalcOpen(false);
+            setPrefill({ tarjetaId, valores });
+          }}
+          onClose={() => setCalcOpen(false)}
+        />
+      )}
 
       {tarjetas.length === 0 ? (
         <p className="empty">
@@ -92,6 +113,8 @@ export default function TarjetasView() {
               accent={t.color}
               onRegistered={loadMonthly}
               onTotalsChange={handleTotalsChange}
+              prefillCuota={prefill?.tarjetaId === t.id ? prefill.valores : null}
+              onPrefillDone={handlePrefillDone}
             />
           ))}
         </div>

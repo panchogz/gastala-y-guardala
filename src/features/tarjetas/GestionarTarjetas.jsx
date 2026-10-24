@@ -3,7 +3,7 @@ import * as api from "./api.js";
 
 const PALETTE = ["#5B9BE8", "#E8A855", "#35D0A0", "#E85D5D", "#C77DFF", "#4DD0E1"];
 
-export default function GestionarTarjetas({ tarjetas, onChange }) {
+export default function GestionarTarjetas({ tarjetas, onChange, children }) {
   const [open, setOpen] = useState(false);
   const [nombre, setNombre] = useState("");
   const [color, setColor] = useState(PALETTE[0]);
@@ -75,9 +75,13 @@ export default function GestionarTarjetas({ tarjetas, onChange }) {
 
   return (
     <div className="manage-cards">
-      <button className="btn-add" onClick={() => setOpen((o) => !o)}>
-        {open ? "Cerrar gestión de tarjetas" : "+ Gestionar tarjetas"}
-      </button>
+      {/* children: acciones extra en la misma línea (calculadora "¿Cuotas o contado?"). */}
+      <div className="calc-bar">
+        <button className="btn-add" style={{ marginTop: 0 }} onClick={() => setOpen((o) => !o)}>
+          {open ? "Cerrar gestión de tarjetas" : "+ Gestionar tarjetas"}
+        </button>
+        {children}
+      </div>
 
       {open && (
         <div className="manage-cards-panel">

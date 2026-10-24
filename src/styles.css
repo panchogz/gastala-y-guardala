@@ -238,6 +238,48 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
   padding: 10px 16px calc(10px + env(safe-area-inset-bottom)) 16px; border-top: 1px solid #2A313B;
 }
 .sheet-actions .btn-register { padding: 11px 22px; font-size: 14px; }
+/* Desktop: el mismo sheet como modal centrado (calculadora "¿Cuotas o
+   contado?" y el alta precargada que abre). */
+@media (min-width: 641px) {
+  .sheet-overlay { align-items: center; justify-content: center; padding: 20px; }
+  .sheet-box { max-width: 480px; max-height: calc(100% - 40px); border-radius: 12px; }
+}
+
+/* Calculadora "¿Cuotas o contado?" (Tarjetas) */
+.calc-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.calc-bar .btn-import { margin: 0; }
+.calc-row { display: flex; gap: 10px; }
+.calc-row > .sheet-field { flex: 1; min-width: 0; }
+.sheet-input-row input.calc-derivado { color: #8B93A1; }
+.calc-hint { font-size: 11px; color: #5F6773; }
+.calc-principal {
+  background: #12161B; border: 1px solid #2A313B; border-radius: 10px;
+  padding: 12px 14px; margin: 4px 0 14px 0;
+}
+.calc-principal-texto { font-size: 17px; font-weight: 600; line-height: 1.35; }
+.calc-guia { font-size: 12px; color: #8B93A1; margin-top: 6px; line-height: 1.4; }
+.calc-subtitulo { font-size: 12px; color: #8B93A1; margin-bottom: 6px; }
+.calc-presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.calc-preset {
+  background: #12161B; border: 1px solid #2A313B; color: #E8E6E1; border-radius: 999px;
+  padding: 7px 12px; font-size: 13px; cursor: pointer; font-family: inherit;
+}
+.calc-resultado { font-size: 15px; font-weight: 600; margin: 4px 0 8px 0; }
+.calc-detalle { margin-bottom: 12px; font-size: 12px; }
+.calc-detalle summary { color: #5B9BE8; cursor: pointer; padding: 4px 0; }
+.calc-pie { font-size: 11px; color: #8B93A1; line-height: 1.45; border-top: 1px solid #2A313B; padding-top: 10px; margin-top: 4px; }
+.calc-acciones { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 6px 0; }
+.calc-acciones .btn-register { margin-top: 0; }
+.calc-btn-secundario {
+  background: none; border: 1px solid #2A313B; color: #E8E6E1; border-radius: 8px;
+  padding: 10px 16px; font-size: 13px; cursor: pointer; font-family: inherit;
+}
+.calc-tarjetas { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.calc-tarjeta {
+  display: flex; align-items: center; gap: 10px; background: #12161B; border: 1px solid #2A313B;
+  color: #E8E6E1; border-radius: 8px; padding: 12px; font-size: 14px; cursor: pointer;
+  font-family: inherit; text-align: left;
+}
 
 /* ImportarResumenModal (importación de resúmenes vía chat de IA externo) */
 .btn-import { background: none; border: 1px dashed #5B9BE8; color: #5B9BE8; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-top: 8px; margin-left: 8px; }

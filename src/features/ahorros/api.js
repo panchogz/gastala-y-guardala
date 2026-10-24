@@ -98,6 +98,19 @@ export const bolsaApi = tableApi("activos_bolsa");
 export const usdtApi = tableApi("activos_usdt");
 export const pesosApi = tableApi("activos_pesos");
 
+// TNA más alta entre las filas de Pesos Líquidos del usuario (preset "Mi caja
+// remunerada" de la calculadora "¿Cuotas o contado?"). Solo lectura; null si
+// no tiene ninguna. Scoped al usuario por RLS, como fetchCuentasAhorro.
+export async function fetchMaxTnaPesos() {
+  const { data, error } = await supabase
+    .from("activos_pesos")
+    .select("tasa_tna")
+    .order("tasa_tna", { ascending: false })
+    .limit(1);
+  if (error) throw error;
+  return data?.length ? Number(data[0].tasa_tna) : null;
+}
+
 // ---------- evolución mensual (una fila por cuenta, no por tipo) ----------
 
 export async function fetchEvolucionCuentas() {
