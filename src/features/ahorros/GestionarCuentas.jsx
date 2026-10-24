@@ -1,4 +1,5 @@
 import { useState } from "react";
+import HelpTip from "../../components/HelpTip.jsx";
 import * as api from "./api.js";
 
 const PALETTE = ["#5B9BE8", "#E8A855", "#35D0A0", "#E85D5D", "#C77DFF", "#4DD0E1"];
@@ -178,6 +179,7 @@ export default function GestionarCuentas({ cuentas, onChange }) {
               <option value="ARS">Moneda: ARS</option>
               <option value="USD">Moneda: USD</option>
             </select>
+            <HelpTip id="tipo-moneda" />
             <div className="color-palette">
               {PALETTE.map((c) => (
                 <button

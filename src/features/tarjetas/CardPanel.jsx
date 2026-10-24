@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Table, Cell } from "../../components/Table.jsx";
 import ImportarResumenModal from "../../components/ImportarResumenModal.jsx";
 import MobileEntryForm from "../../components/MobileEntryForm.jsx";
+import HelpTip from "../../components/HelpTip.jsx";
 import { fmtARS, fmtUSD, fmtPct, cuotaInfo, mismoDiaEnMeses, todayISO } from "../../lib/helpers.js";
 import { useIsMobile } from "../../lib/useIsMobile.js";
 import * as api from "./api.js";
@@ -18,7 +19,7 @@ const ENTRY_FIELDS = {
     fields: [
       { key: "fecha", label: "Fecha", type: "date", required: true, initial: todayISO },
       { key: "comercio", label: "Comercio", required: true },
-      { key: "monto", label: "Monto (ARS)", type: "number", required: true, nonZero: true },
+      { key: "monto", label: "Monto total (ARS)", type: "number", required: true, nonZero: true, help: "cuotas-monto" },
       { key: "cuotas", label: "Cuotas", type: "number", integer: true, min: 1 },
     ],
   },
@@ -343,7 +344,9 @@ export default function CardPanel({
             />
           </label>
           <label>
-            Cotización dólar
+            <span>
+              Cotización dólar <HelpTip id="dolares" />
+            </span>
             <input
               type="number"
               value={config.cotizacion}
@@ -387,7 +390,7 @@ export default function CardPanel({
         columns={[
           { key: "fecha", label: "Fecha" },
           { key: "comercio", label: "Comercio" },
-          { key: "monto", label: "Monto", align: "right" },
+          { key: "monto", label: <>Monto <HelpTip id="cuotas-monto" /></>, align: "right" },
           { key: "cuotas", label: "Cuotas", align: "right" },
           { key: "actual", label: "Cuota act.", align: "right" },
           { key: "pend", label: "Pend.", align: "right" },

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { parseDecimalInput } from "../lib/helpers.js";
 import BottomSheet from "./BottomSheet.jsx";
+import HelpTip from "./HelpTip.jsx";
 
 // Alta de filas vía bottom sheet en mobile (≤640px). Genérico: cada tabla le
 // pasa la definición de sus campos; el insert lo hace onSubmit con la misma
@@ -9,8 +10,9 @@ import BottomSheet from "./BottomSheet.jsx";
 // Props:
 // - title, accent
 // - fields: [{ key, label, type: "text"|"number"|"date", required, min, gt,
-//   nonZero, integer, initial }]. Reglas (solo números): min (≥), gt (>),
+//   nonZero, integer, initial, help }]. Reglas (solo números): min (≥), gt (>),
 //   nonZero (≠ 0), integer. initial: valor o función que lo devuelve.
+//   help: id de pregunta de ayuda.js → "?" junto al label.
 // - onSubmit(values): async; si tira error se muestra en el form y queda
 //   abierto. Opcionales vacíos NO van en values, así la función de alta usa
 //   su default de siempre.
@@ -110,6 +112,7 @@ export default function MobileEntryForm({ title, accent, fields, onSubmit, onCan
             <span>
               {f.label}
               {!f.required && <span className="sheet-optional"> (opcional)</span>}
+              {f.help && <HelpTip id={f.help} />}
             </span>
             <div className="sheet-input-row">
               {negable && (

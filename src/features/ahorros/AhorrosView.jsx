@@ -13,6 +13,7 @@ import AssetTable from "./AssetTable.jsx";
 import GestionarCuentas, { tipoLabel } from "./GestionarCuentas.jsx";
 import ImportarResumenModal from "../../components/ImportarResumenModal.jsx";
 import { Table, Cell } from "../../components/Table.jsx";
+import HelpTip from "../../components/HelpTip.jsx";
 import { fmtARS, fmtUSD, fmtPct, fmtCompact, mesLabel, mesLabelLargo, todayISO } from "../../lib/helpers.js";
 import { useIsMobile } from "../../lib/useIsMobile.js";
 import * as api from "./api.js";
@@ -668,8 +669,12 @@ export default function AhorrosView() {
                 <Table
                   columns={[
                     { key: "activo", label: "Activo / plataforma" },
-                    { key: "saldoAportado", label: "Saldo aportado (USD)", align: "right" },
-                    { key: "tasa", label: "TNA (%)", align: "right" },
+                    {
+                      key: "saldoAportado",
+                      label: <>Saldo aportado (USD) <HelpTip id="saldo-tna" variante="saldo" /></>,
+                      align: "right",
+                    },
+                    { key: "tasa", label: <>TNA (%) <HelpTip id="saldo-tna" variante="tna" /></>, align: "right" },
                     { key: "saldo", label: "Saldo actual (USD)", align: "right" },
                     { key: "rendimiento", label: "Rendimiento (USD)", align: "right" },
                     { key: "ars", label: "Valor (ARS)", align: "right" },
@@ -749,8 +754,12 @@ export default function AhorrosView() {
                 <Table
                   columns={[
                     { key: "activo", label: "Activo / plataforma" },
-                    { key: "saldoAportado", label: "Saldo aportado (ARS)", align: "right" },
-                    { key: "tasa", label: "TNA (%)", align: "right" },
+                    {
+                      key: "saldoAportado",
+                      label: <>Saldo aportado (ARS) <HelpTip id="saldo-tna" variante="saldo" /></>,
+                      align: "right",
+                    },
+                    { key: "tasa", label: <>TNA (%) <HelpTip id="saldo-tna" variante="tna" /></>, align: "right" },
                     { key: "saldo", label: "Saldo actual (ARS)", align: "right" },
                     { key: "rendimiento", label: "Rendimiento (ARS)", align: "right" },
                     { key: "usd", label: "Valor (USD)", align: "right" },

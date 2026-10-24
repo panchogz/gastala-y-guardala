@@ -47,6 +47,61 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
 .view-toggle-btn:hover { border-color: #5B9BE8; color: #E8E6E1; }
 .app-header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
+/* Menú de cuenta (⋯) */
+.user-menu { position: relative; }
+.user-menu-btn { font-size: 18px; line-height: 1; padding: 4px 14px; min-height: 34px; justify-content: center; }
+.user-menu-list {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 90; min-width: 230px; max-width: calc(100vw - 32px);
+  background: #1D232B; border: 1px solid #2A313B; border-radius: 10px; padding: 6px 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+.user-menu-email {
+  padding: 8px 14px 10px 14px; font-size: 12px; color: #8B93A1; border-bottom: 1px solid #2A313B; margin-bottom: 6px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.user-menu-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 0 14px;
+  background: none; border: none; color: #E8E6E1; font-size: 14px; text-align: left; cursor: pointer; font-family: inherit;
+}
+.user-menu-item:hover { background: #252C35; }
+.user-menu-item.danger { color: #E85D5D; }
+.user-menu-sep { height: 1px; background: #2A313B; margin: 6px 0; }
+
+/* Ayuda contextual: "?" junto a un label + popover (portal a body). */
+.help-tip-btn {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; margin-left: 4px; padding: 0; vertical-align: middle;
+  border: 1px solid #5F6773; border-radius: 50%; background: none; color: #8B93A1;
+  font-size: 10px; font-weight: 700; line-height: 1; cursor: pointer; font-family: inherit;
+  text-transform: none;
+}
+/* Área táctil más grande que el ícono, para el dedo. */
+.help-tip-btn::after { content: ""; position: absolute; inset: -12px; }
+.help-tip-btn:hover, .help-tip-btn[aria-expanded="true"] { border-color: #5B9BE8; color: #5B9BE8; }
+.help-pop {
+  position: fixed; z-index: 120; background: #1D232B; border: 1px solid #2A313B; border-radius: 8px;
+  padding: 10px 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  color: #E8E6E1; font-size: 13px; line-height: 1.45; font-weight: 400; text-align: left; white-space: normal;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+.help-pop p { margin: 0 0 6px 0; }
+.help-pop .login-resend { margin: 0; padding: 4px 0; font-size: 13px; }
+
+/* Modal de Ayuda (acordeón) */
+.ayuda-seccion h4 {
+  margin: 14px 0 2px 0; font-size: 11px; color: #8B93A1; text-transform: uppercase; letter-spacing: 0.04em;
+}
+.ayuda-seccion:first-child h4 { margin-top: 4px; }
+.ayuda-item { border-bottom: 1px solid #2A313B; scroll-margin-top: 8px; }
+.ayuda-q {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; min-height: 44px;
+  padding: 10px 0; background: none; border: none; color: #E8E6E1; font-size: 14px; text-align: left;
+  cursor: pointer; font-family: inherit;
+}
+.ayuda-chevron { color: #8B93A1; font-size: 18px; transition: transform 0.15s; flex: none; }
+.ayuda-chevron.open { transform: rotate(90deg); color: #5B9BE8; }
+.ayuda-a { margin: 0 0 12px 0; font-size: 13px; color: #C9CDD3; line-height: 1.5; }
+
 /* 100dvh en vez de 100vh: en iOS, 100vh resuelve contra el viewport "grande"
    (sin descontar el teclado), así que al enfocar el input del PIN/código el
    contenido centrado no se achicaba junto con el teclado y saltaba de lugar.
@@ -238,6 +293,7 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
   padding: 10px 16px calc(10px + env(safe-area-inset-bottom)) 16px; border-top: 1px solid #2A313B;
 }
 .sheet-actions .btn-register { padding: 11px 22px; font-size: 14px; }
+.sheet-overlay-encima { z-index: 110; }
 /* Desktop: el mismo sheet como modal centrado (calculadora "¿Cuotas o
    contado?" y el alta precargada que abre). */
 @media (min-width: 641px) {
@@ -387,6 +443,9 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
   .import-prompt { font-size: 11px; max-height: 180px; }
   .btn-import { margin-left: 0; margin-top: 6px; }
   .asset-block .btn-row { margin-top: 6px; }
+
+  .user-menu-item { min-height: 44px; }
+  .user-menu-btn { min-height: 40px; min-width: 44px; }
 
   .update-toast { left: 10px; right: 10px; bottom: calc(86px + env(safe-area-inset-bottom)); padding: 10px 12px; font-size: 12px; }
 }

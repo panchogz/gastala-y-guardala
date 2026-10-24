@@ -11,6 +11,8 @@ import UnlockSettingsPanel from "./features/auth/UnlockSettingsPanel.jsx";
 import TarjetasView from "./features/tarjetas/TarjetasView.jsx";
 import AhorrosView from "./features/ahorros/AhorrosView.jsx";
 import ExportModal from "./components/ExportModal.jsx";
+import UserMenu from "./components/UserMenu.jsx";
+import { HelpProvider, useAyuda } from "./components/Ayuda.jsx";
 
 // Umbral de inactividad en segundo plano a partir del cual, al volver, se
 // vuelve a pedir el desbloqueo rápido (no cada vez que se cambia de pestaña
@@ -22,6 +24,17 @@ const VIEW_MODE_LABEL = { auto: "Auto", desktop: "Vista escritorio", mobile: "Vi
 const VIEW_MODE_ICON = { auto: "🔁", desktop: "🖥️", mobile: "📱" };
 
 export default function App() {
+  // HelpProvider envuelve toda la app para que cualquier HelpTip (y el menú ⋯)
+  // pueda abrir el modal de Ayuda.
+  return (
+    <HelpProvider>
+      <AppContent />
+    </HelpProvider>
+  );
+}
+
+function AppContent() {
+  const { abrirAyuda } = useAyuda();
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [tab, setTab] = useState("tarjetas");
@@ -175,40 +188,28 @@ export default function App() {
           <span className="brand-g brand-g-teal">₲</span>uardala
         </h1>
         <div className="app-header-actions">
-          <button
-            className="view-toggle-btn"
-            onClick={cycleViewMode}
-            title="Alternar vista escritorio / mobile (solo previsualización, no cambia el ancho real)"
-          >
-            <span aria-hidden="true">{VIEW_MODE_ICON[viewMode]}</span>
-            {VIEW_MODE_LABEL[viewMode]}
-          </button>
-          <button
-            className="view-toggle-btn"
-            onClick={() => setShowExportModal(true)}
-            title="Exportar a Excel"
-          >
-            <span aria-hidden="true">📊</span>
-            Exportar a Excel
-          </button>
-          <button
-            className="view-toggle-btn"
-            onClick={() => setShowUnlockSettings((v) => !v)}
-            title="Configurar desbloqueo rápido"
-          >
-            <span aria-hidden="true">🔒</span>
-            Desbloqueo
-          </button>
-          <button className="view-toggle-btn" onClick={handleLogout} title="Cerrar sesión">
-            <span aria-hidden="true">🚪</span>
-            Cerrar sesión
-          </button>
+          {/* Solo en desarrollo: previsualización de layout, no es una opción de cuenta. */}
+          {import.meta.env.DEV && (
+            <button
+              className="view-toggle-btn"
+              onClick={cycleViewMode}
+              title="Alternar vista escritorio / mobile (solo previsualización, no cambia el ancho real)"
+            >
+              <span aria-hidden="true">{VIEW_MODE_ICON[viewMode]}</span>
+              {VIEW_MODE_LABEL[viewMode]}
+            </button>
+          )}
+          <UserMenu
+            email={session.user.email}
+            items={[
+              { label: "Exportar a Excel", icon: "📊", onClick: () => setShowExportModal(true) },
+              { label: "Desbloqueo (Face ID/PIN)", icon: "🔒", onClick: () => setShowUnlockSettings(true) },
+              { label: "Ayuda", icon: "❓", onClick: () => abrirAyuda() },
+            ]}
+            onLogout={handleLogout}
+          />
         </div>
       </div>
-      <p style={{ color: "#8B93A1", marginTop: 0, marginBottom: 20, fontSize: 13 }}>
-        Conectado a Supabase como <strong>{session.user.email}</strong> — los datos se
-        guardan en la base, no en el navegador.
-      </p>
 
       {showUnlockSettings && (
         <UnlockSettingsPanel

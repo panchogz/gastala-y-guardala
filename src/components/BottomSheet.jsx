@@ -8,7 +8,8 @@ import { useEffect, useRef } from "react";
 // - onSubmit: si viene, la caja es un <form> (Enter / "Ir" del teclado envía).
 // - actions: pie fijo (botones), siempre visible arriba del teclado.
 // - children: cuerpo con scroll interno.
-export default function BottomSheet({ title, accent, onSubmit, actions, children }) {
+// - encima: por arriba de otro sheet abierto (Ayuda sobre un alta, por ejemplo).
+export default function BottomSheet({ title, accent, onSubmit, actions, children, encima }) {
   const overlayRef = useRef(null);
 
   // iOS: con el teclado abierto el viewport de layout no se achica, así que un
@@ -43,7 +44,7 @@ export default function BottomSheet({ title, accent, onSubmit, actions, children
 
   const Box = onSubmit ? "form" : "div";
   return (
-    <div className="sheet-overlay" ref={overlayRef}>
+    <div className={encima ? "sheet-overlay sheet-overlay-encima" : "sheet-overlay"} ref={overlayRef}>
       <Box
         className="sheet-box"
         style={{ borderTopColor: accent }}
