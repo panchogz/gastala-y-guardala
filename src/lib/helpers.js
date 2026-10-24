@@ -64,6 +64,13 @@ export const mesLabelCorto = (key) => {
   return `${m}/${String(y).slice(-2)}`;
 };
 
+// Mes completo para tablas con lugar: "Octubre/26", "Septiembre/26".
+export const mesLabelLargo = (key) => {
+  const [y, m] = key.split("-").map(Number);
+  const nombre = new Date(y, m - 1, 1).toLocaleDateString("es-AR", { month: "long" });
+  return `${nombre.charAt(0).toUpperCase()}${nombre.slice(1)}/${String(y).slice(-2)}`;
+};
+
 export const currentMonthISO = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;

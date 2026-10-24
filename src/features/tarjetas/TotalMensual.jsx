@@ -13,6 +13,7 @@ import {
   fmtARSCompact,
   mesLabel,
   mesLabelCorto,
+  mesLabelLargo,
   currentMonthISO,
   monthKeyOf,
 } from "../../lib/helpers.js";
@@ -218,7 +219,7 @@ export default function TotalMensual({ rows, tarjetas, live = {} }) {
                 const total = tarjetas.reduce((s, t) => s + (byMonth[k][t.id] || 0), 0);
                 return (
                   <tr key={k}>
-                    <td>{mesLabelCorto(k)}</td>
+                    <td style={{ whiteSpace: "nowrap" }}>{mesLabelLargo(k)}</td>
                     {tarjetas.map((t) => (
                       <td key={t.id} style={{ textAlign: "right" }}>
                         {fmtARS(byMonth[k][t.id] || 0)}
