@@ -27,6 +27,22 @@ se calculan.
   con "Total 12 meses" (suma solo esas filas). Las filas "Comprometido" van aparte, en
   gris, y no entran en ningún total. El Excel trae toda la historia, y también las filas
   "Comprometido" fuera de los totales.
+- **Importar resumen de tarjeta:** en la revisión, antes de importar:
+  - **Fecha de cierre:** arriba de todo, precargada con la del resumen y editable. Si el
+    resumen no la trae (o viene mal), la app sugiere la compra más reciente y no deja
+    importar hasta que haya una fecha válida. Las fechas de las cuotas se calculan a
+    partir de ella y se recalculan al cambiarla (salvo las que editaste a mano).
+  - **Un pago ↔ Suscripciones:** cada gasto en pesos de esos dos grupos tiene un botón
+    para pasarlo al otro (el chat a veces no distingue, ej. `MERPAGO*MELI` puede ser una
+    suscripción). Al moverlo toma el tildado del grupo destino.
+  - **Suscripciones repetidas:** si una suscripción aparece más de una vez en el mismo
+    resumen, se muestra una sola fila ("Aparece N veces", o "Monto cambió en el período:
+    se usa el último" si los montos difieren). Si la pasás a Un pago, pasan todas las
+    ocurrencias, cada una como gasto propio.
+  - **Aviso del total:** si el resumen informa el total de consumos y la suma de lo leído
+    difiere más de 1%, aparece un aviso amarillo (no bloquea): conviene revisar cuotas y
+    montos, suele ser un error de lectura. Con el PDF del resumen sale más preciso que
+    con fotos.
 
 ## Ahorros
 
@@ -160,6 +176,28 @@ se sigue completando a mano, como siempre — este análisis no dispara ningún
 auto-completado. Como referencia rápida al cargar un activo: restale ~1.4% a la
 cotización de referencia si vas a operar en Lemon, o usala casi tal cual si vas a operar
 en Binance P2P.
+
+## Datos desactualizados — punto ámbar
+
+Varios valores se cargan a mano y, si quedan viejos, distorsionan los totales sin que se
+note. La app guarda cuándo se actualizó cada uno y marca con un **punto ámbar** los que
+conviene revisar:
+
+- **Qué campos:** precio actual de los activos de Bolsa y Cripto, cotización de cada
+  tarjeta, cotización dólar (CCL/MEP) y cotización USDT de Ahorros, y TNA de USD/Stable y
+  de Pesos Líquidos.
+- **Cuándo aparece:**
+  - **Sin actualizar:** 7 días o más sin cambios en precios y cotizaciones; 30 días o más
+    en la TNA (cambia menos seguido).
+  - **"Sin cargar":** un precio o una cotización en 0. La TNA en 0 no se marca, porque
+    puede ser real.
+  - **"Todavía no la cargaste":** una cotización que nunca se guardó y la app está usando
+    un valor por defecto.
+- **Qué hacer:** tocá el punto para ver el motivo. Si el valor cambió, actualizalo (el
+  punto se va solo). Si sigue siendo el correcto, tocá **"Sigue igual"**: renueva la
+  fecha sin cambiar el valor.
+- Arranca sin puntos por antigüedad: los datos que ya estaban cargados quedaron con la
+  fecha del día en que se activó el indicador.
 
 ## Regla general para toda la app
 
