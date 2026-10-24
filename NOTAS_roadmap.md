@@ -423,6 +423,8 @@
   versión anterior solo de tenencia: HISTORIAL_importacion_tenencia.md.
 - Guía procedural vigente (sí refleja el proceso actual): GUIA_deploy_vercel.md.
 - Guía de uso para cargar datos correctamente: GUIA_DE_USO.md.
+- PLAYBOOK de proyectos React + Supabase + Vercel (gotchas reutilizables entre proyectos,
+  ej. openpyxl): fuera del repo, en `C:\Users\pgonz\Downloads\PLAYBOOK_proyectos_react_supabase.md`.
 - Polling de spread cripto (análisis de Lemon/Binance P2P, cerrado): solo en la carpeta
   local, excluidos por `.gitignore`: `scratch_spread_polling.py` y
   `spread_polling_data.csv`. El informe completo está en GUIA_DE_USO.md ("Resultado del
