@@ -21,52 +21,39 @@
    podría requerir la Management API de Supabase, con su propio token de acceso. Antes de
    estimar esto como "mismo patrón que el keep-alive", conviene confirmar ese punto.
 
-6. **[Prioridad muy baja, revisar si vale la pena] Login con contraseña como
-   alternativa al OTP.** Cada dispositivo/navegador nuevo pide sí o sí el código por mail
-   (esto no cambia — es una decisión de seguridad correcta, no una limitación a resolver).
-   Se podría sumar una contraseña única vía Supabase Auth para entrar directo en cualquier
-   dispositivo sin pasar por el mail, dejando el OTP como recuperación. Técnicamente
-   simple. Vale la pena reconsiderar el valor real: para un grupo chico de confianza, un
-   tercer método de entrada (sumado a OTP y PIN/biometría) puede generar más confusión
-   que beneficio concreto.
+6. ~~Login con contraseña como alternativa al OTP~~ — descartado, ver "Decisiones ya
+   tomadas".
 
-7. **[Fase 1 pendiente] Visualización en ambas monedas — Tarjetas.** Hoy "Total a pagar"
-   mezcla cuotas en ARS y gastos en dólares ya convertidos, en un solo número en pesos —
-   no hay vista en dólares. Falta decidir el diseño: ¿el gráfico muestra dos series por
-   tarjeta (una por moneda), o hay un selector que alterna la vista completa? Definir
-   antes de tocar código. (La Fase 2, Ahorros, ya está resuelta — ver "Resuelto".)
+7. ~~Visualización en ambas monedas — Tarjetas~~ — descartado, ver "Decisiones ya
+   tomadas".
 
-8. **Export retroactivo (mes anterior, no solo el actual).** La app ya guarda fotos
-   mensuales, pero solo cuando el usuario aprieta "Registrar mes" o "Guardar foto" — no es
-   automático. Para Tarjetas, el detalle tiene fecha propia, así que se podría reconstruir
-   un reporte histórico exacto de cualquier mes filtrando por fecha, incluso sin haberlo
-   registrado en su momento. Para Ahorros la reconstrucción no es confiable: los activos
-   solo guardan el "precio actual" (se sobreescribe, sin historial), así que un mes pasado
-   solo se puede exportar si esa foto puntual fue guardada en su momento. Falta diseñar el
-   selector de mes en el modal de export, dejando esta limitación clara para el usuario.
+8. **[Prioridad baja] Export retroactivo (mes anterior, no solo el actual).** El Excel
+   ya trae toda la historia de fotos registradas (tablas completas desde las ventanas de
+   meses); lo único que agregaría esto es reconstruir meses de Tarjetas que nunca se
+   registraron. La app guarda fotos mensuales solo cuando el usuario aprieta "Registrar
+   mes" o "Guardar foto" — no es automático. Para Tarjetas, el detalle tiene fecha
+   propia, así que se podría reconstruir un reporte histórico exacto de cualquier mes
+   filtrando por fecha, incluso sin haberlo registrado en su momento. Para Ahorros la
+   reconstrucción no es confiable: los activos solo guardan el "precio actual" (se
+   sobreescribe, sin historial), así que un mes pasado solo se puede exportar si esa
+   foto puntual fue guardada en su momento. Falta diseñar el selector de mes en el modal
+   de export, dejando esta limitación clara para el usuario.
 
-9. **Extensión del análisis de spread a Buenbit — polling en curso.** A partir del
-   resultado cerrado de Lemon/Binance P2P (ver "Resuelto"), se decidió sumar Buenbit como
-   tercer exchange de referencia, usando el mismo mecanismo (polling cada 3 horas, vía API
-   de CriptoYa, que ya venía siendo la fuente real detrás de los datos de Lemon/Binance
-   P2P — confirmado por el nombrado de exchanges en el CSV, coincide con la convención de
-   CriptoYa). Tarea de Windows a crear con `setup_tarea_windows.bat` →
-   `SpreadPollingCripto2`, corriendo `polling_spread_cripto.py`, guardando en
-   `spread_polling_data_v2.csv`. Análisis con `analizar_spread_cripto.py` (mismo test de
-   hipótesis que el cierre anterior, ya generalizado para cualquier cantidad de
-   exchanges). Sigue siendo puramente informativo, mismo alcance que el análisis anterior.
+9. ~~Extensión del análisis de spread a Buenbit~~ — descartado, ver "Decisiones ya
+   tomadas".
 
 10. **Mejoras a la importación de resúmenes (detectadas al probar con resúmenes reales).**
     La feature base ya está en producción (ver "Resuelto"). Pendientes chicos:
-    - **`fecha_cierre` null:** una captura parcial del resumen puede no traerla, y la
-      Etapa 2 la necesita para calcular la fecha de compra. Si llega null, pedirla en la
-      revisión (input obligatorio, default sugerido: última `fecha_compra`).
+    - **[Prioridad alta, antes de invitar amigos] `fecha_cierre` null:** una captura
+      parcial del resumen puede no traerla, y la Etapa 2 la necesita para calcular la
+      fecha de compra. Si llega null, pedirla en la revisión (input obligatorio, default
+      sugerido: última `fecha_compra`).
     - **`es_suscripcion` editable en la revisión,** no solo el checkbox de incluir: el
       chat no puede distinguir descriptores ambiguos (ej. `MERPAGO*MELI` = MELI+, no una
       compra en Mercado Libre). Permitir mover la fila entre "Un pago" y "Suscripciones".
-    - **Deduplicar suscripciones dentro del mismo JSON** (comercio + monto): un resumen
-      puede cubrir dos ciclos (ej. LinkedIn cobrado el 22/08 y el 22/09) y hoy se
-      crearían dos recurrentes iguales.
+    - **[Prioridad alta, antes de invitar amigos] Deduplicar suscripciones dentro del
+      mismo JSON** (comercio + monto): un resumen puede cubrir dos ciclos (ej. LinkedIn
+      cobrado el 22/08 y el 22/09) y hoy se crearían dos recurrentes iguales.
     - **Validación contra el total del resumen:** sumar `total_consumos_ars` /
       `total_consumos_usd` (opcionales) al schema y compararlos con la suma de filas en la
       revisión. Detecta errores de lectura (en la prueba, una cuota 12/12 se leyó 12/18
@@ -80,6 +67,15 @@
     el resumen de forma molesta, agregar un día de cierre aproximado por tarjeta
     (campo único, se carga una vez). El cierre exacto mes a mes se descartó: cambia
     todos los meses y obliga a una carga manual que se olvida.
+
+12. **Indicador de datos desactualizados.** Varios valores se cargan a mano y, si quedan
+    viejos, distorsionan los totales sin que se note. Guardar un timestamp por campo
+    (vía trigger de Postgres, que lo actualiza solo al cambiar el valor) para: precio
+    actual de activos, cotización de cada tarjeta, cotización USDT y TNA de USD/Stable y
+    Pesos. Umbral: 7 días para precios y cotizaciones, 30 días para TNA. Pasado el
+    umbral, un punto ámbar junto al valor; al tocarlo muestra "Sin actualizar hace X
+    días" y permite confirmar que sigue al día sin cambiar el valor (renueva el
+    timestamp).
 
 ## Testeo y QA
 
@@ -400,6 +396,23 @@
      broker — no justifica el esfuerzo frente a la importación de archivos.
   Revisar si el Open Finance del BCRA termina habilitando acceso para apps de terceros.
 
+- **Visualización en ambas monedas en Tarjetas — descartada (10/2026, ex pendiente 7).**
+  El saldo en dólares de la tarjeta se paga con dólares comprados con el sueldo del mes,
+  así que es un gasto en pesos más: sumar todo en "Total a pagar" es correcto. La única
+  diferencia real es la cotización, y se resuelve cargando en la tarjeta la de compra
+  real. Revisar solo si algún usuario paga el saldo en dólares con dólares ahorrados.
+- **Login con contraseña como alternativa al OTP — descartado (10/2026, ex pendiente 6).**
+  Sería un tercer método de entrada (sumado a OTP y PIN/biometría): para un grupo chico de
+  confianza, más confusión que beneficio. El OTP en cada dispositivo nuevo se mantiene
+  como decisión de seguridad.
+- **Extender el análisis de spread a Buenbit — descartado (10/2026, ex pendiente 9).** El
+  análisis de Lemon/Binance P2P ya respondió la pregunta práctica, y sumar Buenbit no
+  cambia cómo se carga la cotización USDT (sigue siendo manual). Ojo: los scripts de esa
+  extensión (`polling_spread_cripto.py`, `setup_tarea_windows.bat`,
+  `analizar_spread_cripto.py`) no están en el repo; en la carpeta local solo quedan
+  `scratch_spread_polling.py` y `spread_polling_data.csv`, del análisis de Lemon/Binance
+  P2P, excluidos por `.gitignore`.
+
 ## Dónde está todo
 
 - Repo privado en GitHub, con deploy automático en Vercel en cada push a master.
@@ -413,5 +426,7 @@
 - Spec ya implementado, queda como referencia: FEATURE_usdt_interes_compuesto.md.
 - Guía procedural vigente (sí refleja el proceso actual): GUIA_deploy_vercel.md.
 - Guía de uso para cargar datos correctamente: GUIA_DE_USO.md.
-- Polling de spread cripto (Lemon/Binance P2P/Buenbit): `polling_spread_cripto.py`,
-  `setup_tarea_windows.bat`, `analizar_spread_cripto.py`.
+- Polling de spread cripto (análisis de Lemon/Binance P2P, cerrado): solo en la carpeta
+  local, excluidos por `.gitignore`: `scratch_spread_polling.py` y
+  `spread_polling_data.csv`. El informe completo está en GUIA_DE_USO.md ("Resultado del
+  análisis").
