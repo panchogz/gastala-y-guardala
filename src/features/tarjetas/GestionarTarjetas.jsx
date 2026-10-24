@@ -76,8 +76,8 @@ export default function GestionarTarjetas({ tarjetas, onChange, children }) {
   return (
     <div className="manage-cards">
       {/* children: acciones extra en la misma línea (calculadora "¿Cuotas o contado?"). */}
-      <div className="calc-bar">
-        <button className="btn-add" style={{ marginTop: 0 }} onClick={() => setOpen((o) => !o)}>
+      <div className="btn-row">
+        <button className="btn-add" onClick={() => setOpen((o) => !o)}>
           {open ? "Cerrar gestión de tarjetas" : "+ Gestionar tarjetas"}
         </button>
         {children}
@@ -159,7 +159,7 @@ export default function GestionarTarjetas({ tarjetas, onChange, children }) {
               ))}
             </div>
             <button className="btn-add" disabled={saving || !nombre.trim()} onClick={handleAdd}>
-              + agregar tarjeta
+              + Agregar tarjeta
             </button>
           </div>
         </div>

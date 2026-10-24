@@ -4,7 +4,7 @@ import BottomSheet from "./BottomSheet.jsx";
 
 // Alta de filas vía bottom sheet en mobile (≤640px). Genérico: cada tabla le
 // pasa la definición de sus campos; el insert lo hace onSubmit con la misma
-// función de alta que usa el "+ agregar" de desktop (cola offline incluida).
+// función de alta que usa el "+ Agregar" de desktop (cola offline incluida).
 //
 // Props:
 // - title, accent

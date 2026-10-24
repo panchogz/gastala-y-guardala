@@ -272,7 +272,7 @@ export default function CardPanel({
 
   const ADD_FN = { cuotas: addCuota, dolares: addDolar, recurrentes: addRecurrente };
 
-  // "+ agregar": en desktop inserta la fila vacía (con el mismo manejo de
+  // "+ Agregar": en desktop inserta la fila vacía (con el mismo manejo de
   // saving/error de siempre); en mobile abre el form de alta.
   async function handleAddClick(table) {
     if (isMobile) {
@@ -570,7 +570,7 @@ export default function CardPanel({
         ))}
       </Table>
       <button className="btn-add" disabled={saving} onClick={() => handleAddClick("recurrentes")}>
-        + agregar suscripción
+        + Agregar suscripción
       </button>
 
       <button

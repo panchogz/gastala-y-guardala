@@ -246,8 +246,6 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
 }
 
 /* Calculadora "¿Cuotas o contado?" (Tarjetas) */
-.calc-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.calc-bar .btn-import { margin: 0; }
 .calc-row { display: flex; gap: 10px; }
 .calc-row > .sheet-field { flex: 1; min-width: 0; }
 .sheet-input-row input.calc-derivado { color: #8B93A1; }
@@ -284,6 +282,12 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
 /* ImportarResumenModal (importación de resúmenes vía chat de IA externo) */
 .btn-import { background: none; border: 1px dashed #5B9BE8; color: #5B9BE8; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-top: 8px; margin-left: 8px; }
 .btn-import:hover { background: rgba(91, 155, 232, 0.12); }
+/* Fila de botones de acción con separación pareja (ej. "+ Gestionar tarjetas" ·
+   "¿Cuotas o contado?", "+ Agregar" · "Importar resumen"): el espaciado lo da
+   el gap, no los márgenes propios de cada botón. */
+.btn-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.btn-row > button { margin: 0; }
+.asset-block .btn-row { margin-top: 8px; }
 .import-steps { font-size: 13px; color: #E8E6E1; padding-left: 20px; margin: 0 0 14px 0; }
 .import-steps li { margin-bottom: 4px; }
 .import-prompt {
@@ -382,6 +386,7 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
   .modal-box-wide { max-height: 92vh; }
   .import-prompt { font-size: 11px; max-height: 180px; }
   .btn-import { margin-left: 0; margin-top: 6px; }
+  .asset-block .btn-row { margin-top: 6px; }
 
   .update-toast { left: 10px; right: 10px; bottom: calc(86px + env(safe-area-inset-bottom)); padding: 10px 12px; font-size: 12px; }
 }

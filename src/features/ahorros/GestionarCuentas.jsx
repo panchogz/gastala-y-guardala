@@ -191,7 +191,7 @@ export default function GestionarCuentas({ cuentas, onChange }) {
               ))}
             </div>
             <button className="btn-add" disabled={saving || !nombre.trim()} onClick={handleAdd}>
-              + agregar cuenta
+              + Agregar cuenta
             </button>
           </div>
         </div>

@@ -725,7 +725,7 @@ export default function AhorrosView() {
                   })}
                 </Table>
                 <button className="btn-add" onClick={() => addUsdt(c.id)}>
-                  + agregar
+                  + Agregar
                 </button>
               </div>
             );
@@ -806,7 +806,7 @@ export default function AhorrosView() {
                   })}
                 </Table>
                 <button className="btn-add" onClick={() => addPesos(c.id)}>
-                  + agregar
+                  + Agregar
                 </button>
               </div>
             );

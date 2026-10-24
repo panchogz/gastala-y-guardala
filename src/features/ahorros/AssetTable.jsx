@@ -93,14 +93,16 @@ export default function AssetTable({
           </tr>
         ))}
       </Table>
-      <button className="btn-add" onClick={() => (isMobile ? setEntryOpen(true) : add())}>
-        + agregar
-      </button>
-      {onImport && (
-        <button className="btn-import" onClick={onImport}>
-          Importar resumen
+      <div className="btn-row">
+        <button className="btn-add" onClick={() => (isMobile ? setEntryOpen(true) : add())}>
+          + Agregar
         </button>
-      )}
+        {onImport && (
+          <button className="btn-import" onClick={onImport}>
+            Importar resumen
+          </button>
+        )}
+      </div>
       {entryOpen && (
         <MobileEntryForm
           title={`Agregar — ${title}`}
