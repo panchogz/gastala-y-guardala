@@ -51,6 +51,13 @@ export const AYUDA = [
           "Las cuotas que te tocan este mes, las suscripciones activas y los gastos en dólares pasados a pesos con la cotización de la tarjeta. Por eso, si cambiás la cotización, cambia el total.",
       },
       {
+        id: "salario",
+        pregunta: "¿Cómo se calcula el % del salario?",
+        respuesta:
+          "Cargás tu salario neto una sola vez, arriba de las tarjetas. Cada tarjeta muestra qué parte del salario se lleva su “Total a pagar” (pesos más dólares convertidos con la cotización de esa tarjeta), y la franja de arriba muestra la suma de todas. Se marca en rojo cuando pasa del 30%. Si no cargaste el salario, ves “—”.",
+        tip: "Tu salario neto del mes, uno solo para todas las tarjetas. Se usa para calcular el % del salario de cada tarjeta y el total.",
+      },
+      {
         id: "calculadora",
         pregunta: "¿Cómo uso “¿Cuotas o contado?”?",
         respuesta:

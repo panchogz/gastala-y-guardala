@@ -34,7 +34,22 @@ export async function deleteTarjeta(id) {
   await queuedDelete("tarjetas", "id", id);
 }
 
-// ---------- config (salario neto + cotización por tarjeta) ----------
+// ---------- config del usuario (salario neto único, no por tarjeta) ----------
+
+export async function fetchConfigUsuario() {
+  const { data, error } = await supabase.from("config_usuario").select("*").maybeSingle();
+  if (error) throw error;
+  return data; // null si el usuario todavía no guardó nada
+}
+
+export async function saveSalarioNeto(salario_neto) {
+  const user_id = await getUserId();
+  await queuedUpsert("config_usuario", { user_id, salario_neto }, "user_id");
+}
+
+// ---------- config por tarjeta (cotización) ----------
+// tarjeta_config.salario_neto ya no se usa (pasó a config_usuario); la columna
+// queda en la base hasta que se elimine (ver roadmap).
 
 export async function fetchConfig(tarjetaId) {
   const { data, error } = await supabase
@@ -46,11 +61,11 @@ export async function fetchConfig(tarjetaId) {
   return data;
 }
 
-export async function saveConfig(tarjetaId, { salario_neto, cotizacion }) {
+export async function saveConfig(tarjetaId, { cotizacion }) {
   const user_id = await getUserId();
   await queuedUpsert(
     "tarjeta_config",
-    { tarjeta_id: tarjetaId, user_id, salario_neto, cotizacion },
+    { tarjeta_id: tarjetaId, user_id, cotizacion },
     "user_id,tarjeta_id"
   );
 }

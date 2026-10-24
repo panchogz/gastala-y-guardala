@@ -47,13 +47,14 @@ export default function CardPanel({
   onRegistered,
   onTotalsChange,
   prefillCuota,
+  salarioNeto,
   onPrefillDone,
 }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  const [config, setConfig] = useState({ salario_neto: 0, cotizacion: 1200 });
+  const [config, setConfig] = useState({ cotizacion: 1200 });
   const [cuotas, setCuotas] = useState([]);
   const [dolares, setDolares] = useState([]);
   const [recurrentes, setRecurrentes] = useState([]);
@@ -94,7 +95,7 @@ export default function CardPanel({
           api.fetchRecurrentes(tarjetaId),
         ]);
         if (cancelled) return;
-        setConfig({ salario_neto: cfg?.salario_neto ?? 0, cotizacion: cfg?.cotizacion ?? 1200 });
+        setConfig({ cotizacion: cfg?.cotizacion ?? 1200 });
         setCuotas(cuotasRows);
         setDolares(dolaresRows);
         setRecurrentes(recurrentesRows);
@@ -133,7 +134,8 @@ export default function CardPanel({
     0
   );
   const totalAPagar = totalCuotas + totalDolares + totalRecurrentes;
-  const pctSalario = Number(config.salario_neto) > 0 ? totalAPagar / Number(config.salario_neto) : 0;
+  // Contra el salario único del usuario (TarjetasView); sin salario → null ("—").
+  const pctSalario = salarioNeto > 0 ? totalAPagar / salarioNeto : null;
 
   // Compromisos de los próximos 3 meses (tramo punteado del gráfico de Total
   // mensual): cuotas que tengan una cuota en ese mes (cuotaInfo evaluado en la
@@ -158,10 +160,7 @@ export default function CardPanel({
 
   async function handleConfigBlur() {
     try {
-      await api.saveConfig(tarjetaId, {
-        salario_neto: Number(config.salario_neto) || 0,
-        cotizacion: Number(config.cotizacion) || 0,
-      });
+      await api.saveConfig(tarjetaId, { cotizacion: Number(config.cotizacion) || 0 });
     } catch (e) {
       setError(e.message);
     }
@@ -335,15 +334,6 @@ export default function CardPanel({
         <h3 style={{ color: accent }}>{name}</h3>
         <div className="head-inputs">
           <label>
-            Salario neto del mes
-            <input
-              type="number"
-              value={config.salario_neto}
-              onChange={(e) => setConfig((c) => ({ ...c, salario_neto: e.target.value }))}
-              onBlur={handleConfigBlur}
-            />
-          </label>
-          <label>
             <span>
               Cotización dólar <HelpTip id="dolares" />
             </span>
@@ -378,7 +368,7 @@ export default function CardPanel({
         </div>
         <div className="stat">
           <span className="stat-label">% del salario</span>
-          <span className="stat-value" style={{ color: pctSalario > 0.3 ? "#E85D5D" : accent }}>
+          <span className="stat-value" style={{ color: pctSalario > 0.3 ? "#E85D5D" : pctSalario === null ? "#8B93A1" : accent }}>
             {fmtPct(pctSalario)}
           </span>
         </div>

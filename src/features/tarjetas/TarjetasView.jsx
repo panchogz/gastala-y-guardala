@@ -3,6 +3,8 @@ import CardPanel from "./CardPanel.jsx";
 import TotalMensual from "./TotalMensual.jsx";
 import GestionarTarjetas from "./GestionarTarjetas.jsx";
 import CuotasOContado from "./CuotasOContado.jsx";
+import HelpTip from "../../components/HelpTip.jsx";
+import { fmtARS, fmtPct, parseNumeroFlexible } from "../../lib/helpers.js";
 import * as api from "./api.js";
 
 export default function TarjetasView() {
@@ -10,6 +12,10 @@ export default function TarjetasView() {
   const [monthly, setMonthly] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // Salario neto único del usuario (config_usuario): texto del input, se
+  // guarda al salir del campo. salarioNeto es el número que usan las tarjetas.
+  const [salarioStr, setSalarioStr] = useState("");
+  const [salarioNeto, setSalarioNeto] = useState(0);
   // Totales en vivo que informa cada CardPanel: { [tarjetaId]: { actual, futuros: [m1, m2, m3] } }.
   // Alimentan el mes actual y los 3 meses a futuro del gráfico de Total mensual.
   const [live, setLive] = useState({});
@@ -42,6 +48,13 @@ export default function TarjetasView() {
     setTarjetas(rows);
   }, []);
 
+  const loadSalario = useCallback(async () => {
+    const cfg = await api.fetchConfigUsuario();
+    const n = Number(cfg?.salario_neto) || 0;
+    setSalarioNeto(n);
+    setSalarioStr(n > 0 ? n.toLocaleString("es-AR") : "");
+  }, []);
+
   const loadMonthly = useCallback(async () => {
     const rows = await api.fetchMonthly();
     setMonthly(rows);
@@ -53,7 +66,7 @@ export default function TarjetasView() {
       setLoading(true);
       setError(null);
       try {
-        await Promise.all([loadTarjetas(), loadMonthly()]);
+        await Promise.all([loadTarjetas(), loadMonthly(), loadSalario()]);
       } catch (e) {
         if (!cancelled) setError(e.message);
       } finally {
@@ -64,7 +77,25 @@ export default function TarjetasView() {
     return () => {
       cancelled = true;
     };
-  }, [loadTarjetas, loadMonthly]);
+  }, [loadTarjetas, loadMonthly, loadSalario]);
+
+  async function handleSalarioBlur() {
+    const n = parseNumeroFlexible(salarioStr);
+    const nuevo = n !== null && n > 0 ? n : 0;
+    setSalarioStr(nuevo > 0 ? nuevo.toLocaleString("es-AR") : "");
+    if (nuevo === salarioNeto) return;
+    setSalarioNeto(nuevo);
+    try {
+      await api.saveSalarioNeto(nuevo);
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  // Suma en vivo del "Total a pagar" de todas las tarjetas (lo informa cada
+  // CardPanel vía onTotalsChange, el mismo dato que usa el gráfico).
+  const totalTarjetas = tarjetas.reduce((a, t) => a + (live[t.id]?.actual ?? 0), 0);
+  const pctTotal = salarioNeto > 0 ? totalTarjetas / salarioNeto : null;
 
   async function handleTarjetasChange() {
     try {
@@ -104,20 +135,51 @@ export default function TarjetasView() {
           Todavía no agregaste ninguna tarjeta. Usá "Gestionar tarjetas" de arriba para crear la primera.
         </p>
       ) : (
-        <div className="grid-2">
-          {tarjetas.map((t) => (
-            <CardPanel
-              key={t.id}
-              tarjetaId={t.id}
-              name={t.nombre}
-              accent={t.color}
-              onRegistered={loadMonthly}
-              onTotalsChange={handleTotalsChange}
-              prefillCuota={prefill?.tarjetaId === t.id ? prefill.valores : null}
-              onPrefillDone={handlePrefillDone}
-            />
-          ))}
-        </div>
+        <>
+          <div className="salario-strip">
+            <label className="salario-input">
+              <span>
+                Salario neto <HelpTip id="salario" />
+              </span>
+              <input
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                placeholder="—"
+                value={salarioStr}
+                onChange={(e) => setSalarioStr(e.target.value)}
+                onBlur={handleSalarioBlur}
+              />
+            </label>
+            <div className="salario-datos">
+              <span>
+                Tarjetas <strong>{fmtARS(totalTarjetas)}</strong>
+              </span>
+              <span aria-hidden="true">·</span>
+              <span>
+                <strong style={{ color: pctTotal > 0.3 ? "#E85D5D" : pctTotal === null ? "#8B93A1" : "#E8E6E1" }}>
+                  {fmtPct(pctTotal)}
+                </strong>{" "}
+                del salario
+              </span>
+            </div>
+          </div>
+          <div className="grid-2">
+            {tarjetas.map((t) => (
+              <CardPanel
+                key={t.id}
+                tarjetaId={t.id}
+                name={t.nombre}
+                accent={t.color}
+                onRegistered={loadMonthly}
+                onTotalsChange={handleTotalsChange}
+                prefillCuota={prefill?.tarjetaId === t.id ? prefill.valores : null}
+                onPrefillDone={handlePrefillDone}
+                salarioNeto={salarioNeto}
+              />
+            ))}
+          </div>
+        </>
       )}
 
       <div className="subhead" style={{ marginTop: 28 }}>

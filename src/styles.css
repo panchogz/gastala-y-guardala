@@ -168,6 +168,19 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
   .cotiz-input input { width: 100%; }
 }
 .stat { display: flex; flex-direction: column; }
+
+/* Franja resumen arriba de las tarjetas: salario neto único + total y %. */
+.salario-strip {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 18px; margin: 0 0 16px 0;
+  background: #1D232B; border: 1px solid #2A313B; border-radius: 10px; padding: 10px 14px;
+}
+.salario-input { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: #8B93A1; }
+.salario-input input {
+  background: #12161B; border: 1px solid #2A313B; color: #E8E6E1;
+  padding: 6px 8px; border-radius: 6px; font-size: 14px; width: 150px; font-family: inherit;
+}
+.salario-datos { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; font-size: 13px; color: #8B93A1; padding-bottom: 6px; }
+.salario-datos strong { color: #E8E6E1; font-size: 15px; }
 .stat-label { font-size: 11px; color: #8B93A1; }
 .stat-value { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .subhead { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #8B93A1; margin: 10px 0 8px 0; font-weight: 700; }
@@ -421,6 +434,12 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
   .head-inputs input, .cotiz-input input { padding: 5px 6px; font-size: 12px; }
 
   .stat-row { gap: 16px; margin: 8px 0 12px 0; }
+  .salario-strip { padding: 8px 12px; margin-bottom: 14px; gap: 6px 14px; }
+  .salario-input { flex-direction: row; align-items: center; gap: 8px; font-size: 12px; }
+  /* 16px: con menos, iOS hace zoom al enfocar. */
+  .salario-input input { font-size: 16px; width: 140px; padding: 4px 8px; }
+  .salario-datos { font-size: 12px; padding-bottom: 0; }
+  .salario-datos strong { font-size: 14px; }
   .stat-label { font-size: 10px; }
   .stat-value { font-size: 17px; }
 
