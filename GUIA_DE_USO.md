@@ -24,7 +24,7 @@ se calculan.
 ## Ahorros
 
 - **Cuentas:** cada cuenta que creás (Balanz, Binance, Lemon, etc.) tiene un tipo fijo
-  (Bolsa, Cripto o USD/Stable) **y una moneda fija** (ARS o USD), ambos elegidos al
+  (Bolsa, Cripto, USD/Stable o Pesos) **y una moneda fija** (ARS o USD), ambos elegidos al
   crearla y no editables después — si te equivocás, hay que borrar la cuenta y crearla de
   nuevo (esto borra los activos cargados en ella, revisá antes de borrar).
 - **La moneda es por cuenta, no por activo individual.** Todos los activos que cargues

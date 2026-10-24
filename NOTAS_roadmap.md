@@ -136,24 +136,29 @@
 
 ## Resuelto
 
-- **Aviso "Nueva versión disponible" había que tocarlo una vez por deploy (bug, iPhone).**
-  Con varios deploys pendientes, "Recargar" activaba el service worker que estaba en
-  espera en ese momento, que podía ser de un deploy anterior; tras recargar, el chequeo
-  encontraba el siguiente y volvía el aviso. No era que se apilaran avisos ni un doble
-  registro del SW (ambos descartados con evidencia). Reproducido con builds reales y
-  Edge headless (v2 en espera + v3 publicada → 2 toques). Fix en `src/main.jsx`: el
-  botón primero busca la versión más nueva (`registration.update()` y espera a que se
-  instale), después activa el SW en espera y recarga una sola vez (con recarga de
-  respaldo). Confirmado en un preview en iPhone con 2 deploys acumulados: un toque,
-  directo a la última versión. Commit `056ce8e`. Gotcha para futuras pruebas: el
-  Chrome headless de la PC no instala el SW ("Entry already exists" en Cache.put),
-  Edge headless sí; usar Edge para reproducir temas del SW.
+- **Aviso "Nueva versión disponible" había que tocarlo una vez por deploy (bug,
+  iPhone).** Ahora hay un solo aviso aunque haya varios deploys pendientes, y un toque
+  lleva a la última versión. Causa real: con varios deploys pendientes, "Recargar"
+  activaba el service worker que estaba en espera en ese momento, que podía ser de un
+  deploy anterior; tras recargar, el chequeo encontraba el siguiente y volvía el aviso.
+  No era que se apilaran avisos ni un doble registro del SW (ambos descartados con
+  evidencia). Reproducido con builds reales y Edge headless (v2 en espera + v3 publicada
+  → 2 toques). Fix en `src/main.jsx`: el botón primero busca la versión más nueva
+  (`registration.update()` y espera a que se instale), después activa el SW en espera y
+  recarga una sola vez (con recarga de respaldo). Confirmado en un preview en iPhone con
+  2 deploys acumulados: un toque, directo a la última versión. Commit `056ce8e`. Gotcha
+  para futuras pruebas: el Chrome headless de la PC no instala el SW ("Entry already
+  exists" en Cache.put), Edge headless sí; usar Edge para reproducir temas del SW.
 
 - **Salario neto único por usuario + "% del salario" total (ex deuda técnica 3).**
   El salario pasó de `tarjeta_config` (uno por tarjeta) a la tabla `config_usuario`
-  (uno por usuario, `supabase_config_usuario.sql`), editable en una franja arriba de
-  las tarjetas con el total de todas y su %. Commit `1147fbd`. La columna vieja
-  `tarjeta_config.salario_neto` se eliminó con `supabase_drop_salario_tarjeta.sql`.
+  (uno por usuario, RLS `own_rows`, `supabase_config_usuario.sql`). Franja arriba de
+  las tarjetas: "Salario neto · Tarjetas $Y · Z% del salario", con Y = suma en vivo
+  del "Total a pagar" de todas. El % de cada tarjeta se calcula contra el salario
+  único. Rojo arriba del 30%; sin salario cargado, "—". Commit `1147fbd` (el hash
+  `08e44ba` es el de antes del rebase y no está en master). La columna vieja
+  `tarjeta_config.salario_neto` se eliminó con `supabase_drop_salario_tarjeta.sql`
+  (commit `bb25d20`).
 
 - **Cuotas terminadas dejaban de restar (bug).** "Total a pagar" sumaba la cuota de
   compras ya terminadas hasta que se borraban a mano. Fix: `cuotaInfo(row, fecha)`
