@@ -4,9 +4,7 @@
 
 1. ~~Autocompletar OTP desde el mail~~ — resuelto, ver "Resuelto".
 
-2. **Gráficos de evolución con muchos meses.** Hoy no hay límite ni filtro de rango. Con
-   el tiempo, la vista mobile se puede saturar visualmente. Cuando el historial crezca,
-   agregar un selector de rango (últimos 6/12 meses). No urgente todavía.
+2. ~~Gráficos de evolución con muchos meses~~ — resuelto, ver "Resuelto".
 
 3. **[Fase B] Automatización mensual del export a Excel por mail.** La Fase A (botón
    manual) ya está resuelta — ver "Resuelto". La Fase B (mandar el Excel solo, una vez al
@@ -135,6 +133,20 @@
 - `GUIA_DE_USO.md` (interna).
 
 ## Resuelto
+
+- **Ventanas de meses en gráficos y tablas, app y Excel (ex pendiente 2).** Ventanas por
+  calendario, un mes sin foto queda como hueco. App: Tarjetas grafica M−2..M en vivo +
+  M+1..M+3 comprometido (punteado); Ahorros grafica M−5..M con el mes actual en vivo;
+  las tablas muestran M−11..M ("Total 12 meses" suma solo esas filas) y en Tarjetas las
+  filas "Comprometido" van aparte, en gris/itálica, fuera de todo total. Excel: gráficos
+  M−11..M (Tarjetas + comprometido como serie punteada fuera de la leyenda) leyendo de
+  una hoja final "Datos gráficos"; tablas con toda la historia; "Resumen del mes" en
+  vivo, rotulado "al dd/mm". `totalesTarjeta` (src/features/tarjetas/totales.js) es la
+  única implementación del total en vivo y la proyección (app + export). Gotcha
+  resuelto: sin la caché de valores del gráfico, Excel real ignoraba las entradas
+  ocultas de la leyenda (ver PLAYBOOK). Commit `354976b`. De paso, el export pasó a
+  llamarse "GyG-2026-Oct" (`nombreExport()` en helpers.js, convención para todo export):
+  commit `4181375`.
 
 - **Aviso "Nueva versión disponible" había que tocarlo una vez por deploy (bug,
   iPhone).** Ahora hay un solo aviso aunque haya varios deploys pendientes, y un toque
