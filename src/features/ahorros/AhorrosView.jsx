@@ -13,7 +13,7 @@ import AssetTable from "./AssetTable.jsx";
 import GestionarCuentas, { tipoLabel } from "./GestionarCuentas.jsx";
 import ImportarResumenModal from "../../components/ImportarResumenModal.jsx";
 import { Table, Cell } from "../../components/Table.jsx";
-import { fmtARS, fmtUSD, fmtPct, mesLabel, mesLabelCorto, todayISO } from "../../lib/helpers.js";
+import { fmtARS, fmtUSD, fmtPct, mesLabel, mesLabelLargo, todayISO } from "../../lib/helpers.js";
 import * as api from "./api.js";
 
 function apiForTipo(tipo) {
@@ -986,7 +986,7 @@ export default function AhorrosView() {
                       const total = rowsDelMes.reduce((a, r) => a + (Number(r[campoEvolucion]) || 0), 0);
                       return (
                         <tr key={mes}>
-                          <td>{mesLabelCorto(mes.slice(0, 7))}</td>
+                          <td style={{ whiteSpace: "nowrap" }}>{mesLabelLargo(mes.slice(0, 7))}</td>
                           {cuentasEnEvolucion.map((c) => {
                             const r = rowsDelMes.find((r) => r.cuenta_id === c.id);
                             return (
