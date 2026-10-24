@@ -3,7 +3,8 @@ import { Table, Cell } from "../../components/Table.jsx";
 import ImportarResumenModal from "../../components/ImportarResumenModal.jsx";
 import MobileEntryForm from "../../components/MobileEntryForm.jsx";
 import HelpTip from "../../components/HelpTip.jsx";
-import { fmtARS, fmtUSD, fmtPct, cuotaInfo, mismoDiaEnMeses, todayISO } from "../../lib/helpers.js";
+import { fmtARS, fmtUSD, fmtPct, cuotaInfo, todayISO } from "../../lib/helpers.js";
+import { totalesTarjeta } from "./totales.js";
 import { useIsMobile } from "../../lib/useIsMobile.js";
 import * as api from "./api.js";
 
@@ -125,30 +126,18 @@ export default function CardPanel({
     montoARS: (Number(r.monto) || 0) * (Number(config.cotizacion) || 0),
   }));
 
-  // Solo las compras con una cuota en este mes: las ya terminadas (cuota N+1
-  // en adelante) siguen en la tabla pero no suman al total.
-  const totalCuotas = cuotasEnriched.reduce((a, r) => a + (r.activa ? r.montoPorCuota : 0), 0);
-  const totalDolares = dolarEnriched.reduce((a, r) => a + r.montoARS, 0);
-  const totalRecurrentes = recurrentes.reduce(
-    (a, r) => a + (r.activo ? Number(r.monto) || 0 : 0),
-    0
-  );
-  const totalAPagar = totalCuotas + totalDolares + totalRecurrentes;
+  // Total a pagar y compromisos de los próximos 3 meses (tramo punteado del
+  // gráfico): única implementación en totales.js, compartida con el Excel.
+  // Las compras ya terminadas siguen en la tabla pero no suman al total.
+  const {
+    totalCuotas,
+    totalDolares,
+    totalRecurrentes,
+    actual: totalAPagar,
+    futuros: [futuro1, futuro2, futuro3],
+  } = totalesTarjeta({ cuotas, dolares, recurrentes, cotizacion: config.cotizacion }, today);
   // Contra el salario único del usuario (TarjetasView); sin salario → null ("—").
   const pctSalario = salarioNeto > 0 ? totalAPagar / salarioNeto : null;
-
-  // Compromisos de los próximos 3 meses (tramo punteado del gráfico de Total
-  // mensual): cuotas que tengan una cuota en ese mes (cuotaInfo evaluado en la
-  // misma fecha k meses después) + recurrentes activas a monto constante. Sin
-  // gastos en dólares ni compras en un pago: no están comprometidos a futuro.
-  const [futuro1, futuro2, futuro3] = [1, 2, 3].map((k) => {
-    const fecha = mismoDiaEnMeses(today, k);
-    const cuotasMes = cuotas.reduce((a, r) => {
-      const c = cuotaInfo(r, fecha);
-      return a + (c.activa ? c.montoPorCuota : 0);
-    }, 0);
-    return cuotasMes + totalRecurrentes;
-  });
 
   // Informa los totales en vivo a TarjetasView para el gráfico. Deps solo
   // primitivas: el efecto corre cuando cambia algún número, no en cada render.

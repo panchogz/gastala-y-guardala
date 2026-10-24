@@ -15,13 +15,16 @@ import {
   mesLabelCorto,
   mesLabelLargo,
   currentMonthISO,
-  monthKeyOf,
+  ventanaMeses,
 } from "../../lib/helpers.js";
 import { useIsMobile } from "../../lib/useIsMobile.js";
 
 // Sufijo del dataKey del tramo futuro (punteado) de cada tarjeta.
 const FUT = "__fut";
 const MESES_FUTUROS = 3;
+// Ventanas por calendario (relativas al mes actual M).
+const GRAFICO_MESES_ATRAS = 2; // gráfico: M−2..M (+ M+1..M+3 comprometido)
+const TABLA_MESES_ATRAS = 11; // tabla: M−11..M (12 meses)
 
 function ChartTooltip({ active, payload, tarjetas }) {
   if (!active || !payload?.length) return null;
@@ -68,43 +71,44 @@ export default function TotalMensual({ rows, tarjetas, live = {} }) {
   }
   const keys = Object.keys(byMonth).sort();
 
-  // Gráfico: fotos registradas hasta el mes anterior (sólido), el mes actual
-  // calculado en vivo aunque tenga foto (así empalma sin salto con el futuro,
-  // que también es en vivo), y 3 meses de compromisos ya asumidos (punteado).
-  // El punto del mes actual lo comparten ambas series → línea continua. La
-  // tabla de abajo sigue mostrando solo las fotos registradas.
+  // Gráfico: ventana por calendario M−2..M. Los meses anteriores muestran la
+  // foto registrada (un mes sin foto queda como hueco, no se une la línea); el
+  // mes actual va en vivo aunque tenga foto (así empalma sin salto con el
+  // futuro, que también es en vivo), y M+1..M+3 son compromisos ya asumidos
+  // (punteado). El punto del mes actual lo comparten ambas series.
   const mesActual = currentMonthISO().slice(0, 7);
   const hayLive = tarjetas.some((t) => live[t.id]);
 
-  const chartData = keys
-    .filter((k) => k < mesActual)
-    .map((k) => {
-      const point = { key: k, mes: mesLabel(k), kind: "hist" };
-      for (const t of tarjetas) point[t.id] = byMonth[k][t.id] || 0;
-      return point;
-    });
-  if (hayLive || byMonth[mesActual]) {
+  const chartData = ventanaMeses(-GRAFICO_MESES_ATRAS, -1).map((k) => {
+    const point = { key: k, mes: mesLabel(k), kind: "hist" };
+    for (const t of tarjetas) {
+      const v = byMonth[k]?.[t.id];
+      if (v !== undefined) point[t.id] = v;
+    }
+    return point;
+  });
+  {
     const point = { key: mesActual, mes: mesLabel(mesActual), kind: hayLive ? "live" : "hist" };
     for (const t of tarjetas) {
-      const v = live[t.id]?.actual ?? byMonth[mesActual]?.[t.id] ?? 0;
+      const v = live[t.id]?.actual ?? byMonth[mesActual]?.[t.id];
+      if (v === undefined) continue;
       point[t.id] = v;
       if (live[t.id]) point[t.id + FUT] = v;
     }
     chartData.push(point);
   }
   if (hayLive) {
-    const hoy = new Date();
-    for (let k = 1; k <= MESES_FUTUROS; k++) {
-      const key = monthKeyOf(new Date(hoy.getFullYear(), hoy.getMonth() + k, 1));
+    ventanaMeses(1, MESES_FUTUROS).forEach((key, i) => {
       const point = { key, mes: mesLabel(key), kind: "fut" };
       for (const t of tarjetas) {
-        if (live[t.id]) point[t.id + FUT] = live[t.id].futuros[k - 1];
+        if (live[t.id]) point[t.id + FUT] = live[t.id].futuros[i];
       }
       chartData.push(point);
-    }
+    });
   }
 
-  if (chartData.length === 0) {
+  const hayDatosGrafico = chartData.some((p) => tarjetas.some((t) => p[t.id] !== undefined || p[t.id + FUT] !== undefined));
+  if (!hayDatosGrafico) {
     return (
       <p className="empty">
         Todavía no registraste ningún mes. Usá el botón "Registrar" en cada tarjeta.
@@ -112,10 +116,21 @@ export default function TotalMensual({ rows, tarjetas, live = {} }) {
     );
   }
 
-  const totalGeneral = keys.reduce(
+  // Tabla: fotos registradas de M−11..M; "Total 12 meses" suma solo esas filas.
+  // Las filas "Comprometido" (M+1..M+3) van aparte y no entran en ningún total.
+  const desdeTabla = ventanaMeses(-TABLA_MESES_ATRAS, -TABLA_MESES_ATRAS)[0];
+  const keysTabla = keys.filter((k) => k >= desdeTabla && k <= mesActual);
+  const totalTabla = keysTabla.reduce(
     (a, k) => a + tarjetas.reduce((s, t) => s + (byMonth[k][t.id] || 0), 0),
     0
   );
+  const filasComprometido = hayLive
+    ? ventanaMeses(1, MESES_FUTUROS).map((key, i) => {
+        const porTarjeta = Object.fromEntries(tarjetas.map((t) => [t.id, live[t.id]?.futuros[i]]));
+        const total = tarjetas.reduce((a, t) => a + (porTarjeta[t.id] || 0), 0);
+        return { key, porTarjeta, total };
+      })
+    : [];
 
   const legendPayload = tarjetas.map((t) => ({
     id: t.id,
@@ -198,11 +213,12 @@ export default function TotalMensual({ rows, tarjetas, live = {} }) {
         </ResponsiveContainer>
       </div>
 
-      {keys.length === 0 ? (
+      {keysTabla.length === 0 && (
         <p className="empty">
           Todavía no registraste ningún mes. Usá el botón "Registrar" en cada tarjeta.
         </p>
-      ) : (
+      )}
+      {(keysTabla.length > 0 || filasComprometido.length > 0) && (
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>
@@ -215,7 +231,7 @@ export default function TotalMensual({ rows, tarjetas, live = {} }) {
               </tr>
             </thead>
             <tbody>
-              {keys.map((k) => {
+              {keysTabla.map((k) => {
                 const total = tarjetas.reduce((s, t) => s + (byMonth[k][t.id] || 0), 0);
                 return (
                   <tr key={k}>
@@ -229,16 +245,32 @@ export default function TotalMensual({ rows, tarjetas, live = {} }) {
                   </tr>
                 );
               })}
+              {keysTabla.length > 0 && (
+                <tr className="tbl-total">
+                  <td style={{ whiteSpace: "nowrap" }}>TOTAL 12 MESES</td>
+                  {tarjetas.map((t) => (
+                    <td key={t.id} />
+                  ))}
+                  <td style={{ textAlign: "right" }}>{fmtARS(totalTabla)}</td>
+                </tr>
+              )}
+              {filasComprometido.length > 0 && (
+                <tr className="tbl-comprometido-titulo">
+                  <td colSpan={tarjetas.length + 2}>Comprometido (no incluye compras futuras)</td>
+                </tr>
+              )}
+              {filasComprometido.map((f) => (
+                <tr key={f.key} className="tbl-comprometido">
+                  <td style={{ whiteSpace: "nowrap" }}>{mesLabelLargo(f.key)}</td>
+                  {tarjetas.map((t) => (
+                    <td key={t.id} style={{ textAlign: "right" }}>
+                      {f.porTarjeta[t.id] === undefined ? "—" : fmtARS(f.porTarjeta[t.id])}
+                    </td>
+                  ))}
+                  <td style={{ textAlign: "right" }}>{fmtARS(f.total)}</td>
+                </tr>
+              ))}
             </tbody>
-            <tfoot>
-              <tr className="tbl-total">
-                <td>TOTAL ACUMULADO</td>
-                {tarjetas.map((t) => (
-                  <td key={t.id} />
-                ))}
-                <td style={{ textAlign: "right" }}>{fmtARS(totalGeneral)}</td>
-              </tr>
-            </tfoot>
           </table>
         </div>
       )}

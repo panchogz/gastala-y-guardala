@@ -6,7 +6,9 @@ Solapa "Tarjetas" (resumen del mes, evolución mensual con gráfico nativo, y
 detalle opcional de cuotas/dólares/recurrentes por tarjeta) y solapa
 "Ahorros" (resumen de 3 niveles activo→cuenta→tipo, distribución por tipo y
 por cuenta en gráficos de torta, evolución mensual con gráfico nativo, y
-detalle opcional de activos por cuenta).
+detalle opcional de activos por cuenta). Al final, solapa "Datos gráficos":
+la ventana por calendario que dibujan los gráficos (M−11..M, y en Tarjetas
+M+1..M+3 comprometido), ya calculada por el frontend.
 """
 
 import io
@@ -17,7 +19,9 @@ from http.server import BaseHTTPRequestHandler
 from openpyxl import Workbook
 from openpyxl.chart import LineChart, PieChart, Reference
 from openpyxl.chart.axis import ChartLines
+from openpyxl.chart.data_source import AxDataSource, NumData, NumVal, StrData, StrRef, StrVal
 from openpyxl.chart.label import DataLabelList
+from openpyxl.chart.legend import LegendEntry
 from openpyxl.chart.marker import Marker
 from openpyxl.chart.series import DataPoint
 from openpyxl.chart.shapes import GraphicalProperties
@@ -45,6 +49,12 @@ BORDER = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
 
 ARS_FMT = '#,##0" ARS"'
 USD_FMT = '#,##0.00" USD"'
+
+# Filas de proyección ("Comprometido"): aparte de la historia, en gris e
+# itálica, nunca dentro de un total de historia.
+COMPROMETIDO_FONT = Font(italic=True, color="8B93A1")
+COMPROMETIDO_LABEL = "Comprometido (no incluye compras futuras)"
+DATOS_SHEET = "Datos gráficos"
 
 
 def darken_hex(hex_color, factor=0.75):
@@ -82,7 +92,9 @@ def chart_title(text, size=1400, bold=True):
     cp = CharacterProperties(sz=size, b=bold)
     run = RegularTextRun(rPr=cp, t=text)
     para = Paragraph(pPr=ParagraphProperties(defRPr=cp), r=[run])
-    return Title(tx=Text(rich=RichText(p=[para])))
+    # overlay=False: que Excel reserve lugar para el título en vez de dibujarlo
+    # encima del área del gráfico (se pisaba con las líneas más altas).
+    return Title(tx=Text(rich=RichText(p=[para])), overlay=False)
 
 
 def legend_text(size=1000):
@@ -174,6 +186,82 @@ def _write_table(ws, row, title, headers, formats, data_rows):
     return row + 2
 
 
+def _write_datos_header(datos):
+    if datos.max_row > 1:
+        return
+    datos.sheet_view.showGridLines = False
+    datos.cell(row=1, column=1, value="Datos de los gráficos").font = Font(bold=True, size=13)
+    datos.cell(
+        row=2,
+        column=1,
+        value=(
+            "Los gráficos de las hojas Tarjetas y Ahorros leen estos valores (no editar). "
+            "Historia = foto registrada (vacío = mes sin foto); en vivo = mes actual calculado "
+            "al exportar; comprometido = cuotas pendientes + suscripciones activas, sin compras futuras."
+        ),
+    ).font = Font(italic=True, color="8B93A1")
+
+
+def _write_datos_bloque(datos, titulo, meses, series, fmt):
+    """Escribe un bloque Mes | Tipo | series... en la hoja de datos.
+
+    meses: [{mes, tipo, valores: {clave_serie: valor}}]; series: [(clave, nombre)].
+    Devuelve (header_row, first_row, last_row, primera_col_de_series).
+    """
+    _write_datos_header(datos)
+    row = datos.max_row + 2
+    datos.cell(row=row, column=1, value=titulo).font = Font(bold=True, size=12)
+    row += 1
+    header_row = row
+    datos.cell(row=row, column=1, value="Mes")
+    datos.cell(row=row, column=2, value="Tipo")
+    for i, (_clave, nombre) in enumerate(series):
+        datos.cell(row=row, column=3 + i, value=nombre)
+    style_header_row(datos, row, 1, 2 + len(series))
+    row += 1
+    first_row = row
+    for m in meses:
+        datos.cell(row=row, column=1, value=mes_label(m.get("mes", "")))
+        tipo_cell = datos.cell(row=row, column=2, value=m.get("tipo", ""))
+        if m.get("tipo") == "comprometido":
+            tipo_cell.font = COMPROMETIDO_FONT
+        valores = m.get("valores") or {}
+        for i, (clave, _nombre) in enumerate(series):
+            v = valores.get(clave)
+            cell = datos.cell(row=row, column=3 + i, value=float(v) if v is not None else None)
+            cell.number_format = fmt
+        row += 1
+    autosize(datos, 1, 2 + len(series))
+    return header_row, first_row, row - 1, 3
+
+
+def _cachear_series(chart, hoja, header_row, first_row, last_row, first_col):
+    """Guarda en el gráfico los valores que ya están en la hoja (strCache/numCache).
+
+    openpyxl no los escribe y Excel los recalcula al abrir, pero sin esa caché
+    Excel descarta los LegendEntry(delete=True): las series "(comprometido)"
+    aparecían en la leyenda igual. Verificado en Excel 16 por automatización.
+    """
+    meses = [hoja.cell(r, 1).value for r in range(first_row, last_row + 1)]
+    letra = get_column_letter(1)
+    cat_ref = f"'{hoja.title}'!${letra}${first_row}:${letra}${last_row}"
+    for j, serie in enumerate(chart.series):
+        col = first_col + j
+        serie.tx.strRef.strCache = StrData(ptCount=1, pt=[StrVal(idx=0, v=str(hoja.cell(header_row, col).value or ""))])
+        valores = [hoja.cell(r, col).value for r in range(first_row, last_row + 1)]
+        serie.val.numRef.numCache = NumData(
+            formatCode="General",
+            ptCount=len(valores),
+            pt=[NumVal(idx=i, v=v) for i, v in enumerate(valores) if v is not None],
+        )
+        serie.cat = AxDataSource(
+            strRef=StrRef(
+                f=cat_ref,
+                strCache=StrData(ptCount=len(meses), pt=[StrVal(idx=i, v=str(m)) for i, m in enumerate(meses)]),
+            )
+        )
+
+
 def _write_detalle_tarjeta(ws, row, t):
     nombre = t.get("nombre") or ""
 
@@ -228,9 +316,11 @@ def _write_detalle_tarjeta(ws, row, t):
     return row
 
 
-def _build_tarjetas_sheet(wb, payload):
+def _build_tarjetas_sheet(wb, payload, datos):
     tarjetas = sorted(payload.get("tarjetas") or [], key=lambda t: t.get("orden") or 0)
     total_mensual = payload.get("totalMensual") or []
+    comprometido = payload.get("comprometido") or []
+    grafico = payload.get("grafico") or []
     incluir_detalle = bool(payload.get("incluirDetalleTarjetas"))
 
     ws = wb.active
@@ -239,27 +329,23 @@ def _build_tarjetas_sheet(wb, payload):
 
     row = 1
 
-    # ---- Resumen del mes (el más reciente con datos registrados) ----
+    # ---- Resumen del mes: "Total a pagar" en vivo al exportar (totalesTarjeta,
+    # la misma cuenta que la app), no la última foto registrada ----
     ws.cell(row=row, column=1, value="Resumen del mes").font = Font(bold=True, size=13)
+    ws.cell(row=row, column=2, value=f"al {payload.get('hoy') or ''}").font = Font(italic=True, color="8B93A1")
     row += 1
-    ultimo_mes = total_mensual[-1] if total_mensual else None
-    if ultimo_mes:
-        ws.cell(row=row - 1, column=2, value=mes_label(ultimo_mes.get("mes", ""))).font = Font(
-            italic=True, color="8B93A1"
-        )
 
     ws.cell(row=row, column=1, value="Tarjeta")
     ws.cell(row=row, column=2, value="Total")
     style_header_row(ws, row, 1, 2)
     row += 1
     for t in tarjetas:
-        monto = float((ultimo_mes.get("porTarjeta", {}) if ultimo_mes else {}).get(t.get("id"), 0) or 0)
         ws.cell(row=row, column=1, value=t.get("nombre") or "")
-        c = ws.cell(row=row, column=2, value=monto)
+        c = ws.cell(row=row, column=2, value=float(t.get("actual") or 0))
         c.number_format = ARS_FMT
         row += 1
     ws.cell(row=row, column=1, value="TOTAL")
-    c = ws.cell(row=row, column=2, value=float(ultimo_mes.get("total", 0)) if ultimo_mes else 0)
+    c = ws.cell(row=row, column=2, value=sum(float(t.get("actual") or 0) for t in tarjetas))
     c.number_format = ARS_FMT
     style_total_row(ws, row, 1, 2)
     row += 3
@@ -267,7 +353,6 @@ def _build_tarjetas_sheet(wb, payload):
     # ---- Evolución mensual ----
     ws.cell(row=row, column=1, value="Evolución mensual").font = Font(bold=True, size=13)
     row += 1
-    evo_header_row = row
     ws.cell(row=row, column=1, value="Mes")
     for i, t in enumerate(tarjetas):
         ws.cell(row=row, column=2 + i, value=t.get("nombre") or "")
@@ -275,7 +360,6 @@ def _build_tarjetas_sheet(wb, payload):
     ws.cell(row=row, column=total_col, value="Total")
     style_header_row(ws, row, 1, total_col)
     row += 1
-    evo_first_data_row = row
     for m in total_mensual:
         ws.cell(row=row, column=1, value=mes_label(m.get("mes", "")))
         for i, t in enumerate(tarjetas):
@@ -285,18 +369,35 @@ def _build_tarjetas_sheet(wb, payload):
         c = ws.cell(row=row, column=total_col, value=float(m.get("total", 0) or 0))
         c.number_format = ARS_FMT
         row += 1
-    evo_last_data_row = row - 1
+
+    # Proyección M+1..M+3: aparte, en gris e itálica. El "Total" de cada una
+    # es solo lo comprometido de ese mes; no hay ningún total que la sume a
+    # la historia.
+    if comprometido and tarjetas:
+        ws.cell(row=row, column=1, value=COMPROMETIDO_LABEL).font = COMPROMETIDO_FONT
+        row += 1
+        for m in comprometido:
+            ws.cell(row=row, column=1, value=mes_label(m.get("mes", ""))).font = COMPROMETIDO_FONT
+            for i, t in enumerate(tarjetas):
+                v = (m.get("porTarjeta") or {}).get(t.get("id"))
+                c = ws.cell(row=row, column=2 + i, value=float(v) if v is not None else None)
+                c.number_format = ARS_FMT
+                c.font = COMPROMETIDO_FONT
+            c = ws.cell(row=row, column=total_col, value=float(m.get("total", 0) or 0))
+            c.number_format = ARS_FMT
+            c.font = COMPROMETIDO_FONT
+            row += 1
 
     autosize(ws, 1, total_col)
 
     chart_anchor_row = row + 2
-    if total_mensual and tarjetas:
+    if grafico and tarjetas:
         chart = LineChart()
         # El título rotado del eje Y ("ARS") se solapaba con los números del
         # eje en Excel real (no en LibreOffice) por falta de margen propio;
         # en vez de ajustar el layout manual del título, se saca del eje y
         # se suma al título general del gráfico.
-        chart.title = chart_title("Evolución mensual por tarjeta (ARS)")
+        chart.title = chart_title("Evolución mensual (ARS) · punteado: comprometido")
         # El título del eje X ("Mes") se solapaba con las etiquetas
         # (jun-26/jul-26/...) con 3+ meses cargados; se saca por el mismo
         # motivo que el título del eje Y de arriba, además de ser redundante.
@@ -326,12 +427,29 @@ def _build_tarjetas_sheet(wb, payload):
         chart.legend.overlay = False
         chart.legend.txPr = legend_text()
 
-        cats = Reference(ws, min_col=1, min_row=evo_first_data_row, max_row=evo_last_data_row)
-        for i, _t in enumerate(tarjetas):
-            col = 2 + i
-            data = Reference(ws, min_col=col, min_row=evo_header_row, max_row=evo_last_data_row)
+        # Los datos salen de la hoja "Datos gráficos" (ventana por calendario
+        # M−11..M+3, con huecos donde no hay foto): la tabla de arriba solo
+        # tiene los meses con foto, y un gráfico de Excel no puede dejar el
+        # hueco de un mes que no existe como fila.
+        n = len(tarjetas)
+        series_datos = [(t.get("id"), t.get("nombre") or "") for t in tarjetas] + [
+            (f"{t.get('id')}::comp", f"{t.get('nombre') or ''} (comprometido)") for t in tarjetas
+        ]
+        meses_datos = []
+        for m in grafico:
+            valores = dict(m.get("historia") or {})
+            for tid, v in (m.get("comprometido") or {}).items():
+                valores[f"{tid}::comp"] = v
+            meses_datos.append({"mes": m.get("mes"), "tipo": m.get("tipo"), "valores": valores})
+        h, f, l, c0 = _write_datos_bloque(
+            datos, "Tarjetas — evolución mensual (ARS)", meses_datos, series_datos, ARS_FMT
+        )
+        cats = Reference(datos, min_col=1, min_row=f, max_row=l)
+        for i in range(len(series_datos)):
+            data = Reference(datos, min_col=c0 + i, min_row=h, max_row=l)
             chart.add_data(data, titles_from_data=True)
         chart.set_categories(cats)
+        chart.display_blanks = "gap"
 
         for i, t in enumerate(tarjetas):
             color = (t.get("color") or "5B9BE8").lstrip("#").upper()
@@ -343,6 +461,19 @@ def _build_tarjetas_sheet(wb, payload):
             series.marker.graphicalProperties = GraphicalProperties(
                 solidFill=color, ln=LineProperties(solidFill=color)
             )
+            # Tramo comprometido: misma tarjeta, mismo color, punteado y con
+            # marcador hueco; fuera de la leyenda (lo explica el título).
+            comp = chart.series[n + i]
+            comp.graphicalProperties.line.solidFill = color
+            comp.graphicalProperties.line.width = 22225
+            comp.graphicalProperties.line.dashStyle = "dash"
+            comp.smooth = False
+            comp.marker = Marker(symbol="circle", size=6)
+            comp.marker.graphicalProperties = GraphicalProperties(
+                solidFill="FFFFFF", ln=LineProperties(solidFill=color)
+            )
+        _cachear_series(chart, datos, h, f, l, c0)
+        chart.legend.legendEntry = [LegendEntry(idx=n + i, delete=True) for i in range(n)]
 
         ws.add_chart(chart, f"A{chart_anchor_row}")
         row = chart_anchor_row + 24
@@ -610,7 +741,7 @@ def _place_distribucion_charts(ws, pending_charts):
         )
 
 
-def _write_evolucion_ahorros(ws, row, evolucion, cuentas):
+def _write_evolucion_ahorros(ws, row, evolucion, cuentas, grafico, datos):
     ws.cell(row=row, column=1, value="Evolución mensual de ahorros (USD)").font = Font(bold=True, size=13)
     row += 1
 
@@ -620,7 +751,6 @@ def _write_evolucion_ahorros(ws, row, evolucion, cuentas):
         if any((m.get("porCuenta") or {}).get(c.get("id")) is not None for m in evolucion)
     ]
 
-    header_row = row
     ws.cell(row=row, column=1, value="Mes")
     for i, c in enumerate(cuentas_con_datos):
         ws.cell(row=row, column=2 + i, value=c.get("nombre") or "")
@@ -629,7 +759,6 @@ def _write_evolucion_ahorros(ws, row, evolucion, cuentas):
     style_header_row(ws, row, 1, total_col)
     row += 1
 
-    first_data_row = row
     for m in evolucion:
         ws.cell(row=row, column=1, value=mes_label(m.get("mes", "")))
         por_cuenta = m.get("porCuenta") or {}
@@ -639,12 +768,11 @@ def _write_evolucion_ahorros(ws, row, evolucion, cuentas):
             cell.number_format = USD_FMT
         ws.cell(row=row, column=total_col, value=float(m.get("total", 0) or 0)).number_format = USD_FMT
         row += 1
-    last_data_row = row - 1
 
     autosize(ws, 1, total_col)
 
     chart_anchor_row = row + 2
-    if evolucion and cuentas_con_datos:
+    if grafico and cuentas:
         chart = LineChart()
         # El título del eje X ("Mes") se solapaba con las etiquetas jun-26/
         # jul-26/... al haber 3+ meses (mismo problema que el título del eje
@@ -657,14 +785,24 @@ def _write_evolucion_ahorros(ws, row, evolucion, cuentas):
 
         style_line_chart_axes(chart)
 
-        cats = Reference(ws, min_col=1, min_row=first_data_row, max_row=last_data_row)
-        for i, _c in enumerate(cuentas_con_datos):
-            col = 2 + i
-            data = Reference(ws, min_col=col, min_row=header_row, max_row=last_data_row)
+        # Ventana por calendario M−11..M desde "Datos gráficos" (ver Tarjetas):
+        # sin foto → hueco; el mes actual en vivo, como en la app.
+        series_datos = [(c.get("id"), c.get("nombre") or "") for c in cuentas]
+        meses_datos = [
+            {"mes": m.get("mes"), "tipo": m.get("tipo"), "valores": m.get("porCuenta") or {}} for m in grafico
+        ]
+        h, f, l, c0 = _write_datos_bloque(
+            datos, "Ahorros — evolución mensual (USD)", meses_datos, series_datos, USD_FMT
+        )
+        cats = Reference(datos, min_col=1, min_row=f, max_row=l)
+        for i in range(len(series_datos)):
+            data = Reference(datos, min_col=c0 + i, min_row=h, max_row=l)
             chart.add_data(data, titles_from_data=True)
         chart.set_categories(cats)
+        chart.display_blanks = "gap"
 
-        style_line_series(chart, cuentas_con_datos, lambda c: c.get("color"))
+        style_line_series(chart, cuentas, lambda c: c.get("color"))
+        _cachear_series(chart, datos, h, f, l, c0)
 
         ws.add_chart(chart, f"A{chart_anchor_row}")
         row = chart_anchor_row + 24
@@ -723,11 +861,12 @@ def _write_detalle_cuenta_ahorro(ws, row, cuenta):
     return _write_table(ws, row, f"{nombre} — Detalle de activos", headers, formats, data_rows)
 
 
-def _build_ahorros_sheet(wb, payload):
+def _build_ahorros_sheet(wb, payload, datos):
     ahorros = payload.get("ahorros") or {}
     resumen = ahorros.get("resumen") or {"grupos": [], "totalUSD": 0, "totalARS": 0}
     evolucion = ahorros.get("evolucionMensual") or []
     cuentas = ahorros.get("cuentas") or []
+    grafico = ahorros.get("grafico") or []
     incluir_detalle = bool(payload.get("incluirDetalleAhorros"))
 
     ws = wb.create_sheet("Ahorros")
@@ -736,7 +875,7 @@ def _build_ahorros_sheet(wb, payload):
     row = 1
     row = _write_resumen_ahorros(ws, row, resumen)
     row, pending_charts = _write_distribucion_tipo(ws, row, resumen)
-    row = _write_evolucion_ahorros(ws, row, evolucion, cuentas)
+    row = _write_evolucion_ahorros(ws, row, evolucion, cuentas, grafico, datos)
 
     if incluir_detalle:
         for c in cuentas:
@@ -752,9 +891,12 @@ def _build_ahorros_sheet(wb, payload):
 
 def build_workbook(payload):
     wb = Workbook()
-    _build_tarjetas_sheet(wb, payload)
+    datos = wb.create_sheet(DATOS_SHEET)
+    _build_tarjetas_sheet(wb, payload, datos)
     if payload.get("ahorros"):
-        _build_ahorros_sheet(wb, payload)
+        _build_ahorros_sheet(wb, payload, datos)
+    # "Datos gráficos" va siempre última.
+    wb.move_sheet(datos, offset=len(wb.sheetnames) - 1 - wb.sheetnames.index(DATOS_SHEET))
     return wb
 
 

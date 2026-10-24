@@ -36,13 +36,13 @@ export const AYUDA = [
         id: "registrar",
         pregunta: "¿Para qué sirve “Registrar este mes”?",
         respuesta:
-          "Guarda una foto del total a pagar de esa tarjeta en el historial de Total mensual. Si lo volvés a tocar en el mismo mes, la foto nueva reemplaza a la anterior. Lo ideal es registrarlo cuando ya cerró el resumen. En el gráfico, el mes actual muestra el valor en vivo; la tabla, la foto registrada.",
+          "Guarda una foto del total a pagar de esa tarjeta en el historial de Total mensual. Si lo volvés a tocar en el mismo mes, la foto nueva reemplaza a la anterior. Lo ideal es registrarlo cuando ya cerró el resumen. En el gráfico, el mes actual muestra el valor en vivo; la tabla, la foto registrada de los últimos 12 meses (el Excel trae toda la historia). Un mes que no registraste queda como hueco en el gráfico.",
       },
       {
         id: "linea-punteada",
         pregunta: "¿Qué es la línea punteada del gráfico?",
         respuesta:
-          "Es lo que ya tenés comprometido para los próximos 3 meses: las cuotas que te quedan y las suscripciones activas. Es un mínimo: no incluye compras que todavía no hiciste, ni gastos en un pago o en dólares. El mes actual se calcula en vivo con lo que tenés cargado.",
+          "El gráfico muestra los 2 meses anteriores, el actual y los próximos 3. El tramo punteado es lo que ya tenés comprometido para esos 3 meses: las cuotas que te quedan y las suscripciones activas. Es un mínimo: no incluye compras que todavía no hiciste, ni gastos en un pago o en dólares. El mes actual se calcula en vivo con lo que tenés cargado. En la tabla, esos meses aparecen aparte como “Comprometido” y no suman al total.",
       },
       {
         id: "total-a-pagar",

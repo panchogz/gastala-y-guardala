@@ -91,6 +91,17 @@ export function mismoDiaEnMeses(date, k) {
 export const monthKeyOf = (date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 
+// Ventana de meses por calendario, relativa al mes actual M: claves "YYYY-MM"
+// de M+desde a M+hasta (ej. ventanaMeses(-2, 3) → M−2..M+3). Un mes sin foto
+// sigue estando en la ventana: el gráfico lo muestra como hueco.
+export function ventanaMeses(desde, hasta, hoy = new Date()) {
+  const claves = [];
+  for (let k = desde; k <= hasta; k++) {
+    claves.push(monthKeyOf(new Date(hoy.getFullYear(), hoy.getMonth() + k, 1)));
+  }
+  return claves;
+}
+
 // Conversión de tasas con capitalización diaria (mismo criterio que el
 // interés de USD/Stable y Pesos Líquidos). En fracción, no en %: 0.29 = 29%.
 // i = (1 + TNA/365)^(365/12) − 1, y su inversa.

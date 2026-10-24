@@ -213,6 +213,13 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
 .tbl-dense .cell-input[type="date"] { width: 112px; min-width: 112px; max-width: 112px; }
 .cell-computed { color: #E8E6E1; }
 .tbl-total td { font-weight: 700; border-top: 1px solid #2A313B; border-bottom: none; padding-top: 8px; }
+/* Filas de proyección ("Comprometido") en tablas de evolución: aparte de la
+   historia y fuera de cualquier total. */
+.tbl-comprometido-titulo td {
+  color: #8B93A1; font-style: italic; font-size: 11px; padding-top: 10px;
+  border-bottom: 1px solid #2A313B; text-transform: none;
+}
+.tbl-comprometido td { color: #8B93A1; font-style: italic; }
 .tbl-subtotal td { font-weight: 600; color: #8B93A1; border-bottom: 1px solid #2A313B; padding-bottom: 10px; }
 .btn-del { background: none; border: none; color: #E85D5D; cursor: pointer; font-size: 16px; line-height: 1; }
 .btn-add { background: none; border: 1px dashed #2A313B; color: #8B93A1; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-top: 8px; }

@@ -1,6 +1,7 @@
 import * as api from "../features/tarjetas/api.js";
 import * as ahorrosApi from "../features/ahorros/api.js";
-import { cuotaInfo, currentMonthKey, todayISO } from "./helpers.js";
+import { cuotaInfo, currentMonthKey, currentMonthISO, todayISO, ventanaMeses } from "./helpers.js";
+import { totalesTarjeta } from "../features/tarjetas/totales.js";
 
 // El export no reusa el estado ya cargado en TarjetasView/CardPanel (queda
 // repartido por tarjeta dentro de cada CardPanel, no centralizado) — vuelve a
@@ -8,9 +9,13 @@ import { cuotaInfo, currentMonthKey, todayISO } from "./helpers.js";
 // toda la jerarquía de componentes. Sigue sin tocar Supabase desde el backend:
 // todo el armado del JSON pasa por acá, en el cliente ya autenticado.
 
-async function buildCuotaDetalle(tarjetaId) {
-  const rows = await api.fetchCuotas(tarjetaId);
-  const today = new Date();
+// Ventanas de los gráficos del Excel (relativas al mes actual M): historia
+// M−11..M y, en Tarjetas, comprometido M+1..M+3. Las tablas traen toda la
+// historia de fotos.
+const EXCEL_MESES_ATRAS = 11;
+const EXCEL_MESES_COMPROMETIDOS = 3;
+
+function cuotaDetalle(rows, today) {
   return rows.map((r) => {
     const { cuotaActual, cuotasPendientes, montoPorCuota } = cuotaInfo(r, today);
     const saldoPagado = montoPorCuota * cuotaActual;
@@ -27,8 +32,7 @@ async function buildCuotaDetalle(tarjetaId) {
   });
 }
 
-async function buildDolarDetalle(tarjetaId, cotizacion) {
-  const rows = await api.fetchDolares(tarjetaId);
+function dolarDetalle(rows, cotizacion) {
   return rows.map((r) => ({
     fecha: r.fecha,
     comercio: r.comercio || "",
@@ -37,8 +41,7 @@ async function buildDolarDetalle(tarjetaId, cotizacion) {
   }));
 }
 
-async function buildRecurrenteDetalle(tarjetaId) {
-  const rows = await api.fetchRecurrentes(tarjetaId);
+function recurrenteDetalle(rows) {
   return rows.map((r) => ({
     concepto: r.concepto || "",
     monto: Number(r.monto) || 0,
@@ -48,21 +51,34 @@ async function buildRecurrenteDetalle(tarjetaId) {
 
 export async function buildTarjetasExportPayload(incluirDetalleTarjetas) {
   const [tarjetasRows, monthlyRows] = await Promise.all([api.fetchTarjetas(), api.fetchMonthly()]);
+  const today = new Date();
 
+  // Los datos de cada tarjeta se piden siempre (no solo con detalle): hacen
+  // falta para el mes actual en vivo y la proyección, calculados con
+  // totalesTarjeta, la misma función que usa la app.
   const tarjetas = await Promise.all(
     tarjetasRows.map(async (t) => {
       const base = { id: t.id, nombre: t.nombre, color: t.color, orden: Number(t.orden) || 0 };
-      if (!incluirDetalleTarjetas) {
-        return { ...base, cuotas: [], dolares: [], recurrentes: [] };
-      }
-      const cfg = await api.fetchConfig(t.id);
-      const cotizacion = Number(cfg?.cotizacion) || 0;
-      const [cuotas, dolares, recurrentes] = await Promise.all([
-        buildCuotaDetalle(t.id),
-        buildDolarDetalle(t.id, cotizacion),
-        buildRecurrenteDetalle(t.id),
+      const [cfg, cuotasRows, dolaresRows, recurrentesRows] = await Promise.all([
+        api.fetchConfig(t.id),
+        api.fetchCuotas(t.id),
+        api.fetchDolares(t.id),
+        api.fetchRecurrentes(t.id),
       ]);
-      return { ...base, cuotas, dolares, recurrentes };
+      // Mismo default que CardPanel cuando la tarjeta todavía no tiene cotización.
+      const cotizacion = Number(cfg?.cotizacion ?? 1200) || 0;
+      const { actual, futuros } = totalesTarjeta(
+        { cuotas: cuotasRows, dolares: dolaresRows, recurrentes: recurrentesRows, cotizacion },
+        today
+      );
+      const detalle = incluirDetalleTarjetas
+        ? {
+            cuotas: cuotaDetalle(cuotasRows, today),
+            dolares: dolarDetalle(dolaresRows, cotizacion),
+            recurrentes: recurrenteDetalle(recurrentesRows),
+          }
+        : { cuotas: [], dolares: [], recurrentes: [] };
+      return { ...base, actual, futuros, ...detalle };
     })
   );
 
@@ -80,7 +96,42 @@ export async function buildTarjetasExportPayload(incluirDetalleTarjetas) {
       return { mes, porTarjeta, total };
     });
 
-  return { tarjetas, totalMensual, incluirDetalleTarjetas };
+  // Filas "Comprometido" de la tabla (M+1..M+3): aparte de totalMensual,
+  // nunca entran en un total de historia.
+  const mesesComprometidos = ventanaMeses(1, EXCEL_MESES_COMPROMETIDOS, today);
+  const comprometido = mesesComprometidos.map((mes, i) => {
+    const porTarjeta = Object.fromEntries(tarjetas.map((t) => [t.id, t.futuros[i]]));
+    return { mes, porTarjeta, total: tarjetas.reduce((a, t) => a + t.futuros[i], 0) };
+  });
+
+  // Datos del gráfico, por calendario: M−11..M+3. Historia = foto registrada
+  // (sin foto → vacío, el gráfico deja el hueco); el mes actual en vivo, y
+  // también como primer punto del tramo comprometido para que empalme.
+  const mesActual = currentMonthISO().slice(0, 7);
+  const grafico = ventanaMeses(-EXCEL_MESES_ATRAS, EXCEL_MESES_COMPROMETIDOS, today).map((mes) => {
+    const historia = {};
+    const comprometidoMes = {};
+    let tipo = "historia";
+    if (mes < mesActual) {
+      for (const t of tarjetas) {
+        const v = byMonth[mes]?.[t.id];
+        if (v !== undefined) historia[t.id] = v;
+      }
+    } else if (mes === mesActual) {
+      tipo = "en vivo";
+      for (const t of tarjetas) historia[t.id] = comprometidoMes[t.id] = t.actual;
+    } else {
+      tipo = "comprometido";
+      const i = mesesComprometidos.indexOf(mes);
+      for (const t of tarjetas) comprometidoMes[t.id] = t.futuros[i];
+    }
+    return { mes, tipo, historia, comprometido: comprometidoMes };
+  });
+
+  const d = today;
+  const hoy = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+
+  return { tarjetas, totalMensual, comprometido, grafico, hoy, incluirDetalleTarjetas };
 }
 
 // ---------------------------------------------------------------------------
@@ -269,6 +320,21 @@ export async function buildAhorrosExportPayload(incluirDetalleAhorros) {
     return { mes: mes.slice(0, 7), porCuenta, total };
   });
 
+  // Datos del gráfico, por calendario: M−11..M (USD, sin proyección). Sin
+  // foto → vacío (hueco); el mes actual en vivo, como en la app.
+  const mesActualAhorro = currentMonthISO().slice(0, 7);
+  const grafico = ventanaMeses(-EXCEL_MESES_ATRAS, 0).map((mes) => {
+    const porCuenta = {};
+    if (mes === mesActualAhorro) {
+      for (const c of cuentasOrdenadas) porCuenta[c.id] = cuentaTotales[c.id].usd;
+    } else {
+      for (const r of evolucionRows) {
+        if (r.mes.slice(0, 7) === mes) porCuenta[r.cuenta_id] = Number(r.valor_usd) || 0;
+      }
+    }
+    return { mes, tipo: mes === mesActualAhorro ? "en vivo" : "historia", porCuenta };
+  });
+
   const cuentas = cuentasOrdenadas.map((c) => {
     const { enriched } = cuentaTotales[c.id];
     const activos = incluirDetalleAhorros
@@ -297,7 +363,7 @@ export async function buildAhorrosExportPayload(incluirDetalleAhorros) {
   });
 
   return {
-    ahorros: { resumen: { grupos, totalUSD, totalARS }, evolucionMensual, cuentas },
+    ahorros: { resumen: { grupos, totalUSD, totalARS }, evolucionMensual, cuentas, grafico },
     incluirDetalleAhorros: !!incluirDetalleAhorros,
   };
 }

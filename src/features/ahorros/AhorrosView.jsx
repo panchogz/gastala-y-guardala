@@ -14,7 +14,18 @@ import GestionarCuentas, { tipoLabel } from "./GestionarCuentas.jsx";
 import ImportarResumenModal from "../../components/ImportarResumenModal.jsx";
 import { Table, Cell } from "../../components/Table.jsx";
 import HelpTip from "../../components/HelpTip.jsx";
-import { fmtARS, fmtUSD, fmtPct, fmtCompact, mesLabel, mesLabelLargo, todayISO } from "../../lib/helpers.js";
+import {
+  fmtARS,
+  fmtUSD,
+  fmtPct,
+  fmtCompact,
+  mesLabel,
+  mesLabelCorto,
+  mesLabelLargo,
+  todayISO,
+  currentMonthISO,
+  ventanaMeses,
+} from "../../lib/helpers.js";
 import { useIsMobile } from "../../lib/useIsMobile.js";
 import * as api from "./api.js";
 
@@ -505,14 +516,29 @@ export default function AhorrosView() {
   const campoEvolucion = monedaEvolucion === "ARS" ? "valor_ars" : "valor_usd";
   const fmtEvolucion = monedaEvolucion === "ARS" ? fmtARS : fmtUSD;
 
-  const chartData = mesesEvolucion.map((mes) => {
-    const obj = { mes: mesLabel(mes.slice(0, 7)) };
-    for (const c of cuentasEnEvolucion) {
-      const row = evolucionCuenta.find((r) => r.mes === mes && r.cuenta_id === c.id);
+  // Gráfico: ventana por calendario M−5..M, sin proyección. Los meses
+  // anteriores muestran la foto guardada (sin foto → hueco, la línea no se
+  // une); el mes actual va en vivo (totalesDeCuenta), como en Tarjetas.
+  const mesActual = currentMonthISO().slice(0, 7);
+  const cuentasGrafico = [...cuentas].sort(porTipoYNombre);
+  const campoVivo = monedaEvolucion === "ARS" ? "ars" : "usd";
+  const chartData = ventanaMeses(-5, -1).map((key) => {
+    const obj = { key };
+    for (const c of cuentasGrafico) {
+      const row = evolucionCuenta.find((r) => r.mes.slice(0, 7) === key && r.cuenta_id === c.id);
       if (row) obj[c.id] = Number(row[campoEvolucion]) || 0;
     }
     return obj;
   });
+  {
+    const obj = { key: mesActual };
+    for (const c of cuentasGrafico) obj[c.id] = totalesDeCuenta(c)[campoVivo];
+    chartData.push(obj);
+  }
+
+  // Tabla: fotos guardadas de M−11..M (12 meses). El Excel trae toda la historia.
+  const desdeTabla = ventanaMeses(-11, -11)[0];
+  const mesesTabla = mesesEvolucion.filter((mes) => mes.slice(0, 7) >= desdeTabla).sort();
 
   if (loading) {
     return <div className="loading">Cargando…</div>;
@@ -942,79 +968,93 @@ export default function AhorrosView() {
               ))}
             </span>
           </div>
-          {evolucionCuenta.length === 0 ? (
+          {cuentasGrafico.length > 0 && (
+            <div style={{ width: "100%", height: 260, marginBottom: 16 }}>
+              <ResponsiveContainer>
+                <LineChart
+                  data={chartData}
+                  margin={isMobile ? { top: 5, right: 8, left: 0, bottom: 0 } : { top: 5, right: 64, left: 0, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#2A313B" />
+                  {/* En mobile el formato corto ("10/26"), igual que Tarjetas: "oct 26" no
+                      entra sin que Recharts saltee meses. */}
+                  <XAxis
+                    dataKey="key"
+                    tickFormatter={isMobile ? mesLabelCorto : mesLabel}
+                    stroke="#8B93A1"
+                    fontSize={isMobile ? 10 : 12}
+                    padding={isMobile ? { left: 8, right: 8 } : { left: 16, right: 16 }}
+                  />
+                  <YAxis
+                    width={64}
+                    stroke="#8B93A1"
+                    fontSize={12}
+                    tickFormatter={(v) => fmtCompact(v, { usarK: isMobile })}
+                    label={{ value: monedaEvolucion, angle: -90, position: "insideLeft", fill: "#8B93A1", fontSize: 12 }}
+                  />
+                  <Tooltip
+                    contentStyle={{ background: "#1D232B", border: "1px solid #2A313B", color: "#E8E6E1" }}
+                    formatter={(v) => fmtEvolucion(v)}
+                    labelFormatter={(key) => (key === mesActual ? `${mesLabel(key)} · en vivo` : mesLabel(key))}
+                  />
+                  <Legend wrapperStyle={{ left: 64, right: 64, width: "auto" }} />
+                  {/* Sin connectNulls: un mes sin foto queda como hueco. Sin
+                      animación: el mes actual cambia en vivo al editar. */}
+                  {cuentasGrafico.map((c) => (
+                    <Line
+                      key={c.id}
+                      type="monotone"
+                      dataKey={c.id}
+                      name={c.nombre}
+                      stroke={c.color}
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      isAnimationActive={false}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {mesesTabla.length === 0 ? (
             <p className="empty">
               Todavía no guardaste ninguna foto mensual. Usá el botón "Guardar foto del mes actual" de arriba.
             </p>
           ) : (
-            <>
-              <div style={{ width: "100%", height: 260, marginBottom: 16 }}>
-                <ResponsiveContainer>
-                  <LineChart data={chartData} margin={{ top: 5, right: 64, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#2A313B" />
-                    <XAxis dataKey="mes" stroke="#8B93A1" fontSize={12} padding={{ left: 16, right: 16 }} />
-                    <YAxis
-                      width={64}
-                      stroke="#8B93A1"
-                      fontSize={12}
-                      tickFormatter={(v) => fmtCompact(v, { usarK: isMobile })}
-                      label={{ value: monedaEvolucion, angle: -90, position: "insideLeft", fill: "#8B93A1", fontSize: 12 }}
-                    />
-                    <Tooltip
-                      contentStyle={{ background: "#1D232B", border: "1px solid #2A313B", color: "#E8E6E1" }}
-                      formatter={(v) => fmtEvolucion(v)}
-                    />
-                    <Legend wrapperStyle={{ left: 64, right: 64, width: "auto" }} />
+            <div className="tbl-wrap">
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    <th>Mes</th>
                     {cuentasEnEvolucion.map((c) => (
-                      <Line
-                        key={c.id}
-                        type="monotone"
-                        dataKey={c.id}
-                        name={c.nombre}
-                        stroke={c.color}
-                        strokeWidth={2}
-                        dot={{ r: 3 }}
-                        connectNulls
-                      />
+                      <th key={c.id}>{c.nombre}</th>
                     ))}
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="tbl-wrap">
-                <table className="tbl">
-                  <thead>
-                    <tr>
-                      <th>Mes</th>
-                      {cuentasEnEvolucion.map((c) => (
-                        <th key={c.id}>{c.nombre}</th>
-                      ))}
-                      <th>Total {monedaEvolucion}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {mesesEvolucion.map((mes) => {
-                      const rowsDelMes = evolucionCuenta.filter((r) => r.mes === mes);
-                      const total = rowsDelMes.reduce((a, r) => a + (Number(r[campoEvolucion]) || 0), 0);
-                      return (
-                        <tr key={mes}>
-                          <td style={{ whiteSpace: "nowrap" }}>{mesLabelLargo(mes.slice(0, 7))}</td>
-                          {cuentasEnEvolucion.map((c) => {
-                            const r = rowsDelMes.find((r) => r.cuenta_id === c.id);
-                            return (
-                              <td key={c.id} style={{ textAlign: "right" }}>
-                                {r ? fmtEvolucion(r[campoEvolucion]) : "—"}
-                              </td>
-                            );
-                          })}
-                          <td style={{ textAlign: "right", fontWeight: 600 }}>{fmtEvolucion(total)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </>
+                    <th>Total {monedaEvolucion}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mesesTabla.map((mes) => {
+                    const rowsDelMes = evolucionCuenta.filter((r) => r.mes === mes);
+                    const total = rowsDelMes.reduce((a, r) => a + (Number(r[campoEvolucion]) || 0), 0);
+                    return (
+                      <tr key={mes}>
+                        <td style={{ whiteSpace: "nowrap" }}>{mesLabelLargo(mes.slice(0, 7))}</td>
+                        {cuentasEnEvolucion.map((c) => {
+                          const r = rowsDelMes.find((r) => r.cuenta_id === c.id);
+                          return (
+                            <td key={c.id} style={{ textAlign: "right" }}>
+                              {r ? fmtEvolucion(r[campoEvolucion]) : "—"}
+                            </td>
+                          );
+                        })}
+                        <td style={{ textAlign: "right", fontWeight: 600 }}>{fmtEvolucion(total)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </>
       )}
