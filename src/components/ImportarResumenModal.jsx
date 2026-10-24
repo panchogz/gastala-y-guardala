@@ -5,10 +5,18 @@ import {
   extraerJson,
   validarTenencia,
   validarTarjeta,
-  restarMeses,
+  construirFilasTarjeta,
+  fechaCierreSugerida,
+  fechaDeFila,
+  dedupeSuscripciones,
+  moverFila,
+  filasAImportar,
+  avisosTotal,
+  esFechaValida,
 } from "../lib/importResumen.js";
 import * as ahorrosApi from "../features/ahorros/api.js";
 import * as tarjetasApi from "../features/tarjetas/api.js";
+import { fmtARS, fmtUSD } from "../lib/helpers.js";
 
 // Importación de resúmenes vía chat de IA externo — tenencia (Etapa 1) a una
 // cuenta de ahorro, y tarjeta (Etapa 2) a una tarjeta. Ver
@@ -93,101 +101,6 @@ function construirFilasRevision(activos, cuenta, existingRows) {
   });
 }
 
-// true si ya existe una fila con el mismo nombre (comercio/concepto, trim +
-// case-insensitive) y el mismo monto (±1 centavo, por redondeos).
-function existeDuplicado(lista, campo, nombre, monto) {
-  const n = String(nombre || "").trim().toLowerCase();
-  return (lista || []).some(
-    (r) =>
-      String(r[campo] || "").trim().toLowerCase() === n &&
-      Math.abs((Number(r.monto) || 0) - monto) < 0.01
-  );
-}
-
-// Reparte los consumos del resumen en los 4 grupos de revisión de la
-// tarjeta y calcula fecha/monto de cada uno (ver FEATURE_importacion_resumenes.md
-// — Etapa 2). notaInfo es solo informativa (no afecta el color de la fila);
-// notaWarn marca duplicados (amarilla).
-function construirFilasTarjeta(consumos, fechaCierre, existingRows) {
-  const ex = existingRows || {};
-  const cuotasExist = ex.cuotas || [];
-  const dolaresExist = ex.dolares || [];
-  const recurrentesExist = ex.recurrentes || [];
-
-  return consumos.map((c, i) => {
-    const notasInfo = [];
-    let notaWarn = null;
-    let grupo, fecha, monto, cuotas, checked;
-
-    if (c.es_suscripcion && c.moneda !== "USD") {
-      grupo = "recurrentes";
-      monto = c.monto_cuota;
-      checked = true;
-      if (existeDuplicado(recurrentesExist, "concepto", c.comercio, monto)) {
-        notaWarn = `Ya existe una suscripción "${c.comercio}" con ese monto`;
-        checked = false;
-      }
-    } else if (c.es_suscripcion) {
-      // USD: no hay recurrentes en esa moneda, se ofrece como gasto puntual.
-      grupo = "dolares";
-      fecha = c.fecha_compra ?? fechaCierre;
-      monto = c.monto_cuota;
-      checked = true;
-      notasInfo.push("Suscripción en USD: se importa como gasto en dólares (no hay recurrentes en esa moneda)");
-      if (existeDuplicado(dolaresExist, "comercio", c.comercio, monto)) {
-        notaWarn = `Ya existe un gasto en dólares "${c.comercio}" con ese monto`;
-        checked = false;
-      }
-    } else if (c.moneda === "USD") {
-      grupo = "dolares";
-      fecha = c.fecha_compra ?? fechaCierre;
-      monto = c.monto_cuota;
-      checked = true;
-      if (existeDuplicado(dolaresExist, "comercio", c.comercio, monto)) {
-        notaWarn = `Ya existe un gasto en dólares "${c.comercio}" con ese monto`;
-        checked = false;
-      }
-    } else if (c.cuotas_total > 1) {
-      grupo = "cuotas_curso";
-      cuotas = c.cuotas_total;
-      monto = c.monto_cuota * c.cuotas_total;
-      fecha = restarMeses(fechaCierre, c.cuota_actual - 1);
-      checked = true;
-      if (c.fecha_compra) notasInfo.push(`Compra original: ${c.fecha_compra}`);
-      if (c.cuota_actual === c.cuotas_total) notasInfo.push("Última cuota");
-      if (existeDuplicado(cuotasExist, "comercio", c.comercio, monto)) {
-        notaWarn = `Ya existe una compra "${c.comercio}" con ese monto`;
-        checked = false;
-      }
-    } else {
-      grupo = "un_pago";
-      cuotas = 1;
-      monto = c.monto_cuota;
-      fecha = c.fecha_compra ?? fechaCierre;
-      checked = false;
-      notasInfo.push("Ya están en este resumen; importalo solo si todavía no lo pagaste");
-      if (existeDuplicado(cuotasExist, "comercio", c.comercio, monto)) {
-        notaWarn = `Ya existe una compra "${c.comercio}" con ese monto`;
-      }
-    }
-
-    return {
-      key: `${grupo}-${c.comercio}-${i}`,
-      grupo,
-      checked,
-      comercio: c.comercio,
-      fecha,
-      monto,
-      cuotas,
-      cuota_actual: c.cuota_actual,
-      cuotas_total: c.cuotas_total,
-      notasInfo,
-      notaWarn,
-      color: notaWarn ? "yellow" : null,
-    };
-  });
-}
-
 export default function ImportarResumenModal({ tipo, cuenta, tarjeta, existingRows, onImported, onClose }) {
   const [paso, setPaso] = useState(1);
   const [copiado, setCopiado] = useState(false);
@@ -196,6 +109,12 @@ export default function ImportarResumenModal({ tipo, cuenta, tarjeta, existingRo
   const [descartadas, setDescartadas] = useState(0);
   const [error, setError] = useState(null);
   const [importando, setImportando] = useState(false);
+  // Solo tarjeta: fecha de cierre (precargada con la del JSON, o sugerida si
+  // faltaba), si faltaba en el JSON (entonces es obligatoria) y avisos del
+  // control contra el total del resumen.
+  const [fechaCierre, setFechaCierre] = useState("");
+  const [cierreFaltaba, setCierreFaltaba] = useState(false);
+  const [avisos, setAvisos] = useState([]);
 
   const esTenencia = tipo === "tenencia";
   const prompt = esTenencia ? PROMPT_TENENCIA : PROMPT_TARJETA;
@@ -223,9 +142,12 @@ export default function ImportarResumenModal({ tipo, cuenta, tarjeta, existingRo
         setFilas(construirFilasRevision(activos, cuenta, existingRows));
         setDescartadas(n);
       } else {
-        const { fecha_cierre, consumos, descartadas: n } = validarTarjeta(json);
-        setFilas(construirFilasTarjeta(consumos, fecha_cierre, existingRows));
-        setDescartadas(n);
+        const v = validarTarjeta(json);
+        setFilas(construirFilasTarjeta(v.consumos, existingRows));
+        setFechaCierre(v.fecha_cierre ?? fechaCierreSugerida(v.consumos));
+        setCierreFaltaba(!v.fecha_cierre);
+        setAvisos(avisosTotal(v.consumos, v));
+        setDescartadas(v.descartadas);
       }
       setPaso(3);
     } catch (e) {
@@ -235,6 +157,10 @@ export default function ImportarResumenModal({ tipo, cuenta, tarjeta, existingRo
 
   function actualizarFila(key, patch) {
     setFilas((fs) => fs.map((f) => (f.key === key ? { ...f, ...patch } : f)));
+  }
+
+  function mover(key) {
+    setFilas((fs) => moverFila(fs, key, existingRows));
   }
 
   async function importar() {
@@ -252,20 +178,13 @@ export default function ImportarResumenModal({ tipo, cuenta, tarjeta, existingRo
         const inserted = await API_DE_TIPO[cuenta.tipo].insertMany(cuenta.id, rows);
         onImported(inserted);
       } else {
-        const cuotasRows = seleccionadas
-          .filter((f) => f.grupo === "cuotas_curso" || f.grupo === "un_pago")
-          .map((f) => ({
-            fecha: f.fecha,
-            comercio: f.comercio,
-            monto: Number(f.monto) || 0,
-            cuotas: Number(f.cuotas) || 1,
-          }));
-        const dolaresRows = seleccionadas
-          .filter((f) => f.grupo === "dolares")
-          .map((f) => ({ fecha: f.fecha, comercio: f.comercio, monto: Number(f.monto) || 0 }));
-        const recurrentesRows = seleccionadas
-          .filter((f) => f.grupo === "recurrentes")
-          .map((f) => ({ concepto: f.comercio, monto: Number(f.monto) || 0, activo: true }));
+        // Tildadas y no ocultas por el dedupe, con la fecha calculada desde la
+        // fecha de cierre actual (salvo las editadas a mano).
+        const {
+          cuotas: cuotasRows,
+          dolares: dolaresRows,
+          recurrentes: recurrentesRows,
+        } = filasAImportar(filas, fechaCierre);
 
         const [cuotasIns, dolaresIns, recurrentesIns] = await Promise.all([
           cuotasRows.length ? tarjetasApi.insertManyCuotas(tarjeta.id, cuotasRows) : Promise.resolve([]),
@@ -283,7 +202,12 @@ export default function ImportarResumenModal({ tipo, cuenta, tarjeta, existingRo
     }
   }
 
-  const seleccionadas = filas.filter((f) => f.checked).length;
+  let seleccionadas = filas.filter((f) => f.checked).length;
+  if (!esTenencia) {
+    const aImportar = filasAImportar(filas, fechaCierre);
+    seleccionadas = aImportar.cuotas.length + aImportar.dolares.length + aImportar.recurrentes.length;
+  }
+  const cierreInvalido = !esTenencia && !esFechaValida(fechaCierre);
   const sinConexion = typeof navigator !== "undefined" && navigator.onLine === false;
 
   return (
@@ -297,7 +221,8 @@ export default function ImportarResumenModal({ tipo, cuenta, tarjeta, existingRo
               <li>Copiá estas instrucciones.</li>
               <li>
                 Abrí el chat de IA que uses (Claude, ChatGPT, Gemini…), adjuntá el PDF o las
-                fotos de tu resumen y pegá las instrucciones.
+                fotos de tu resumen y pegá las instrucciones. Si podés, usá el PDF del resumen:
+                sale más preciso que fotos o capturas.
               </li>
               <li>Copiá la respuesta completa y pegala en el siguiente paso.</li>
             </ol>
@@ -363,7 +288,15 @@ export default function ImportarResumenModal({ tipo, cuenta, tarjeta, existingRo
             {esTenencia ? (
               <RevisionTenencia filas={filas} etiquetaCampo={etiquetaCampo} cuenta={cuenta} actualizarFila={actualizarFila} />
             ) : (
-              <RevisionTarjeta filas={filas} actualizarFila={actualizarFila} />
+              <RevisionTarjeta
+                filas={filas}
+                actualizarFila={actualizarFila}
+                mover={mover}
+                fechaCierre={fechaCierre}
+                setFechaCierre={setFechaCierre}
+                cierreFaltaba={cierreFaltaba}
+                avisos={avisos}
+              />
             )}
 
             {sinConexion && (
@@ -380,7 +313,7 @@ export default function ImportarResumenModal({ tipo, cuenta, tarjeta, existingRo
               <button
                 className="btn-register"
                 style={{ background: "#35D0A0", marginTop: 0, marginLeft: "auto" }}
-                disabled={seleccionadas === 0 || sinConexion || importando}
+                disabled={seleccionadas === 0 || sinConexion || importando || cierreInvalido}
                 onClick={importar}
               >
                 {importando ? "Importando…" : `Importar ${seleccionadas}`}
@@ -393,16 +326,18 @@ export default function ImportarResumenModal({ tipo, cuenta, tarjeta, existingRo
   );
 }
 
-function FilaNotas({ f, colSpan }) {
-  if (f.notasInfo.length === 0 && !f.notaWarn) return null;
+// accion: botón opcional al pie de las notas (mover entre Un pago y
+// Suscripciones). Va acá y no en una columna para que no quede cortado en mobile.
+function FilaNotas({ f, colSpan, extra, accion }) {
+  const info = extra ? [...f.notasInfo, extra] : f.notasInfo;
+  if (info.length === 0 && !f.notaWarn && !accion) return null;
   return (
     <tr className={f.color ? `import-row-${f.color}` : undefined}>
       <td></td>
       <td colSpan={colSpan}>
-        {f.notasInfo.length > 0 && (
-          <div className="import-note import-note-info">{f.notasInfo.join(" · ")}</div>
-        )}
+        {info.length > 0 && <div className="import-note import-note-info">{info.join(" · ")}</div>}
         {f.notaWarn && <div className="import-note import-note-yellow">{f.notaWarn}</div>}
+        {accion}
       </td>
     </tr>
   );
@@ -495,14 +430,53 @@ const GRUPOS_TARJETA = [
   { key: "recurrentes", titulo: "Suscripciones" },
 ];
 
-function RevisionTarjeta({ filas, actualizarFila }) {
-  if (filas.length === 0) return <p className="empty">No se encontraron consumos para importar.</p>;
+// Grupos entre los que se puede mover una fila ARS (cambia la tabla destino).
+const DESTINO_MOVER = { un_pago: "Pasar a Suscripciones", recurrentes: "Pasar a Un pago" };
+
+function RevisionTarjeta({ filas, actualizarFila, mover, fechaCierre, setFechaCierre, cierreFaltaba, avisos }) {
+  const cierreOk = esFechaValida(fechaCierre);
+  // Dedupe de suscripciones repetidas en el mismo resumen: se recalcula en cada
+  // render, así que mover filas lo reevalúa solo.
+  const dedupe = dedupeSuscripciones(filas);
 
   return (
     <>
+      <div className="import-cierre">
+        <label>
+          <span>Fecha de cierre del resumen</span>
+          <input
+            className="cell-input"
+            type="date"
+            value={fechaCierre}
+            onChange={(e) => setFechaCierre(e.target.value)}
+            aria-invalid={cierreFaltaba && !cierreOk}
+          />
+        </label>
+        <div className={`import-note ${cierreFaltaba && !cierreOk ? "import-note-red" : "import-note-info"}`}>
+          {cierreFaltaba
+            ? cierreOk
+              ? "No venía en el resumen: sugerimos la compra más reciente. Revisala."
+              : "No venía en el resumen: completala para poder importar."
+            : "Las fechas de las cuotas se calculan a partir de esta fecha."}
+        </div>
+      </div>
+
+      {avisos.map((a) => {
+        const fmt = a.moneda === "USD" ? fmtUSD : fmtARS;
+        return (
+          <div key={a.moneda} className="import-aviso">
+            La suma de los consumos leídos ({fmt(a.leido)}) no coincide con el total del resumen (
+            {fmt(a.total)}). Puede haber un error de lectura: revisá cuotas y montos.
+          </div>
+        );
+      })}
+
+      {filas.length === 0 && <p className="empty">No se encontraron consumos para importar.</p>}
+
       {GRUPOS_TARJETA.map(({ key, titulo }) => {
-        const delGrupo = filas.filter((f) => f.grupo === key);
+        const delGrupo = filas.filter((f) => f.grupo === key && !dedupe.ocultas.has(f.key));
         if (delGrupo.length === 0) return null;
+        const conMover = key in DESTINO_MOVER;
         const colSpanNotas = 2 + (key === "cuotas_curso" ? 1 : 0) + (key !== "recurrentes" ? 1 : 0);
         return (
           <div key={key} style={{ marginBottom: 16 }}>
@@ -519,51 +493,74 @@ function RevisionTarjeta({ filas, actualizarFila }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {delGrupo.map((f) => (
-                    <Fragment key={f.key}>
-                      <tr className={f.color ? `import-row-${f.color}` : undefined}>
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={f.checked}
-                            onChange={(e) => actualizarFila(f.key, { checked: e.target.checked })}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            className="cell-input"
-                            value={f.comercio}
-                            onChange={(e) => actualizarFila(f.key, { comercio: e.target.value })}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            className="cell-input"
-                            type="number"
-                            style={{ textAlign: "right" }}
-                            value={f.monto}
-                            onChange={(e) => actualizarFila(f.key, { monto: e.target.value })}
-                          />
-                        </td>
-                        {key === "cuotas_curso" && (
-                          <td style={{ textAlign: "right" }} className="cell-computed">
-                            {f.cuota_actual} de {f.cuotas_total}
+                  {delGrupo.map((f) => {
+                    const ocurrencias = dedupe.miembros.get(f.key)?.length || 1;
+                    return (
+                      <Fragment key={f.key}>
+                        <tr className={f.color ? `import-row-${f.color}` : undefined}>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={f.checked}
+                              onChange={(e) => actualizarFila(f.key, { checked: e.target.checked })}
+                            />
                           </td>
-                        )}
-                        {key !== "recurrentes" && (
                           <td>
                             <input
                               className="cell-input"
-                              type="date"
-                              value={f.fecha || ""}
-                              onChange={(e) => actualizarFila(f.key, { fecha: e.target.value })}
+                              value={f.comercio}
+                              onChange={(e) => actualizarFila(f.key, { comercio: e.target.value })}
                             />
                           </td>
-                        )}
-                      </tr>
-                      <FilaNotas f={f} colSpan={colSpanNotas} />
-                    </Fragment>
-                  ))}
+                          <td>
+                            <input
+                              className="cell-input"
+                              type="number"
+                              style={{ textAlign: "right" }}
+                              value={f.monto}
+                              onChange={(e) => actualizarFila(f.key, { monto: e.target.value })}
+                            />
+                          </td>
+                          {key === "cuotas_curso" && (
+                            <td style={{ textAlign: "right" }} className="cell-computed">
+                              {f.cuota_actual} de {f.cuotas_total}
+                            </td>
+                          )}
+                          {key !== "recurrentes" && (
+                            <td>
+                              <input
+                                className="cell-input"
+                                type="date"
+                                value={fechaDeFila(f, fechaCierre) || ""}
+                                onChange={(e) => actualizarFila(f.key, { fechaManual: e.target.value || null })}
+                              />
+                            </td>
+                          )}
+                        </tr>
+                        <FilaNotas
+                          f={f}
+                          colSpan={colSpanNotas}
+                          extra={dedupe.notas.get(f.key)}
+                          accion={
+                            conMover && (
+                              <button
+                                type="button"
+                                className="import-mover"
+                                onClick={() => mover(f.key)}
+                                title={
+                                  ocurrencias > 1
+                                    ? `Mueve las ${ocurrencias} veces que aparece, cada una como gasto propio`
+                                    : undefined
+                                }
+                              >
+                                {DESTINO_MOVER[key]}
+                              </button>
+                            )
+                          }
+                        />
+                      </Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

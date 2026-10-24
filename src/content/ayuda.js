@@ -67,7 +67,7 @@ export const AYUDA = [
         id: "importar",
         pregunta: "¿Cómo importo un resumen?",
         respuesta:
-          "Copiás unas instrucciones, las pegás en el chat de IA que uses junto con el PDF o las fotos del resumen, y pegás la respuesta en la app. El archivo se procesa en ese chat, no en Gastala y Guardala. Revisá todo antes de confirmar: nada se guarda hasta que tocás “Importar”. Con PDF suele salir mejor que con fotos. Se puede usar en tarjetas y en cuentas de Bolsa y Cripto.",
+          "Copiás unas instrucciones, las pegás en el chat de IA que uses junto con el PDF o las fotos del resumen, y pegás la respuesta en la app. El archivo se procesa en ese chat, no en Gastala y Guardala. Revisá todo antes de confirmar: nada se guarda hasta que tocás “Importar”. Con PDF suele salir mejor que con fotos. Se puede usar en tarjetas y en cuentas de Bolsa y Cripto. En tarjetas, si el resumen no trae la fecha de cierre te la pide, las suscripciones repetidas se juntan en una, podés pasar un gasto entre “Un pago” y “Suscripciones”, y si lo leído no suma lo mismo que el total del resumen, te avisa.",
       },
     ],
   },

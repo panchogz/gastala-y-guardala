@@ -366,6 +366,21 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
 .asset-block .btn-row { margin-top: 8px; }
 .import-steps { font-size: 13px; color: #E8E6E1; padding-left: 20px; margin: 0 0 14px 0; }
 .import-steps li { margin-bottom: 4px; }
+/* Revisión de resumen de tarjeta: fecha de cierre, aviso de total y mover filas. */
+.import-cierre { margin-bottom: 14px; }
+.import-cierre label { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; color: #E8E6E1; }
+.import-cierre input { width: auto; min-width: 150px; }
+.import-cierre input[aria-invalid="true"] { border-color: #E85D5D; }
+.import-aviso {
+  background: #2B2410; border: 1px solid #E8A855; color: #FFE7BD;
+  padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 14px;
+}
+.import-mover {
+  background: none; border: 1px dashed #2A313B; color: #8B93A1; border-radius: 6px;
+  padding: 4px 10px; font-size: 11px; cursor: pointer; white-space: nowrap; font-family: inherit;
+  margin-bottom: 8px;
+}
+.import-mover:hover { border-color: #5B9BE8; color: #5B9BE8; }
 .import-prompt {
   background: #12161B; border: 1px solid #2A313B; border-radius: 8px; padding: 12px;
   font-size: 12px; color: #B9C0CB; white-space: pre-wrap; max-height: 260px; overflow-y: auto;
