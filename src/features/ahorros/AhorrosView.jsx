@@ -14,6 +14,8 @@ import GestionarCuentas, { tipoLabel } from "./GestionarCuentas.jsx";
 import ImportarResumenModal from "../../components/ImportarResumenModal.jsx";
 import { Table, Cell } from "../../components/Table.jsx";
 import HelpTip from "../../components/HelpTip.jsx";
+import DatoViejo from "../../components/DatoViejo.jsx";
+import { estadoDato, ahoraISO } from "../../lib/desactualizado.js";
 import {
   fmtARS,
   fmtUSD,
@@ -65,6 +67,9 @@ export default function AhorrosView() {
 
   const [cotizacion, setCotizacion] = useState(1200);
   const [cotizacionUsdt, setCotizacionUsdt] = useState(1200);
+  // Indicador de datos desactualizados de las cotizaciones: si hay fila guardada
+  // y cuándo se actualizó cada una (ver lib/desactualizado.js).
+  const [cotMeta, setCotMeta] = useState({ existe: true, ccl: null, usdt: null });
   const [evolucionCuenta, setEvolucionCuenta] = useState([]);
   const [monedaEvolucion, setMonedaEvolucion] = useState("USD");
   // Buffer local de edición de TNA por fila (id -> string tipeado). Mientras se
@@ -101,6 +106,7 @@ export default function AhorrosView() {
         if (cancelled) return;
         setCotizacion(cot?.dolar_ccl_mep ?? 1200);
         setCotizacionUsdt(cot?.dolar_usdt ?? 1200);
+        setCotMeta({ existe: !!cot, ccl: cot?.dolar_ccl_mep_at ?? null, usdt: cot?.dolar_usdt_at ?? null });
         setEvolucionCuenta(evoRows);
         await loadCuentas();
       } catch (e) {
@@ -130,6 +136,7 @@ export default function AhorrosView() {
   async function handleCotizacionBlur() {
     try {
       await api.saveCotizacion(Number(cotizacion) || 0);
+      setCotMeta((m) => ({ ...m, existe: true }));
     } catch (e) {
       setError(e.message);
     }
@@ -138,6 +145,25 @@ export default function AhorrosView() {
   async function handleCotizacionUsdtBlur() {
     try {
       await api.saveCotizacionUsdt(Number(cotizacionUsdt) || 0);
+      setCotMeta((m) => ({ ...m, existe: true }));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function confirmarCotizacion(campo, clave) {
+    try {
+      await api.confirmarCotizacion(campo);
+      setCotMeta((m) => ({ ...m, [clave]: ahoraISO() }));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function confirmarTna(cuentaId, id, tableApi, campo) {
+    try {
+      await tableApi.confirmar(id, campo);
+      setRowsFor(cuentaId)((rows) => rows.map((r) => (r.id === id ? { ...r, [`${campo}_at`]: ahoraISO() } : r)));
     } catch (e) {
       setError(e.message);
     }
@@ -273,7 +299,9 @@ export default function AhorrosView() {
     const patch = { saldo_usd: saldoActual, fecha_ultimo_calculo: todayISO(), tasa_anual: nuevaTasa };
     try {
       await api.usdtApi.update(r.id, patch);
-      setRowsFor(cuentaId)((rows) => rows.map((row) => (row.id === r.id ? { ...row, ...patch } : row)));
+      setRowsFor(cuentaId)((rows) =>
+        rows.map((row) => (row.id === r.id ? { ...row, ...patch, tasa_anual_at: ahoraISO() } : row))
+      );
     } catch (e) {
       setError(e.message);
     }
@@ -380,7 +408,9 @@ export default function AhorrosView() {
     const patch = { saldo_ars: saldoActual, fecha_ultimo_calculo: todayISO(), tasa_tna: nuevaTasa };
     try {
       await api.pesosApi.update(r.id, patch);
-      setRowsFor(cuentaId)((rows) => rows.map((row) => (row.id === r.id ? { ...row, ...patch } : row)));
+      setRowsFor(cuentaId)((rows) =>
+        rows.map((row) => (row.id === r.id ? { ...row, ...patch, tasa_tna_at: ahoraISO() } : row))
+      );
     } catch (e) {
       setError(e.message);
     }
@@ -551,20 +581,52 @@ export default function AhorrosView() {
 
       <div className="stat-row" style={{ marginBottom: 20, alignItems: "flex-end" }}>
         <label className="cotiz-input">
-          Cotización dólar (CCL/MEP)
+          <span>
+            Cotización dólar (CCL/MEP){" "}
+            <DatoViejo
+              estado={estadoDato({
+                tipo: "cotizacion",
+                valor: cotizacion,
+                at: cotMeta.ccl,
+                sinFila: !cotMeta.existe,
+                valorDefecto: 1200,
+                fmt: fmtARS,
+              })}
+              onConfirmar={() => confirmarCotizacion("dolar_ccl_mep", "ccl")}
+            />
+          </span>
           <input
             type="number"
             value={cotizacion}
-            onChange={(e) => setCotizacion(e.target.value)}
+            onChange={(e) => {
+              setCotizacion(e.target.value);
+              setCotMeta((m) => ({ ...m, ccl: ahoraISO() }));
+            }}
             onBlur={handleCotizacionBlur}
           />
         </label>
         <label className="cotiz-input">
-          Cotización USDT
+          <span>
+            Cotización USDT{" "}
+            <DatoViejo
+              estado={estadoDato({
+                tipo: "cotizacion",
+                valor: cotizacionUsdt,
+                at: cotMeta.usdt,
+                sinFila: !cotMeta.existe,
+                valorDefecto: 1200,
+                fmt: fmtARS,
+              })}
+              onConfirmar={() => confirmarCotizacion("dolar_usdt", "usdt")}
+            />
+          </span>
           <input
             type="number"
             value={cotizacionUsdt}
-            onChange={(e) => setCotizacionUsdt(e.target.value)}
+            onChange={(e) => {
+              setCotizacionUsdt(e.target.value);
+              setCotMeta((m) => ({ ...m, usdt: ahoraISO() }));
+            }}
             onBlur={handleCotizacionUsdtBlur}
           />
         </label>
@@ -603,6 +665,7 @@ export default function AhorrosView() {
                   })
                 }
                 onUpdate={(id, patch) => api.bolsaApi.update(id, patch)}
+                onConfirmarDato={(id, campo) => api.bolsaApi.confirmar(id, campo)}
                 onDelete={(id) => api.bolsaApi.remove(id)}
                 onImport={() => {
                   setImportMsg(null);
@@ -613,7 +676,7 @@ export default function AhorrosView() {
                   { key: "ticker", label: "Ticker", editable: true, required: true },
                   { key: "cantidad", label: "Cantidad", editable: true, type: "number", align: "right", required: true, gt: 0 },
                   { key: "precio_compra", label: `Precio compra (${c.moneda})`, editable: true, type: "number", align: "right", min: 0 },
-                  { key: "precio_actual", label: `Precio actual (${c.moneda})`, editable: true, type: "number", align: "right", min: 0 },
+                  { key: "precio_actual", label: `Precio actual (${c.moneda})`, editable: true, type: "number", align: "right", min: 0, dato: "precio" },
                   { key: nativeKey, label: `Valor actual (${c.moneda})`, align: "right", format: nativeFmt },
                   { key: "pl", label: "P&L", align: "right", format: (v) => (v === null ? "—" : nativeFmt(v)) },
                   { key: "plPct", label: "P&L %", align: "right", format: (v) => (v === null ? "—" : fmtPct(v)) },
@@ -652,6 +715,7 @@ export default function AhorrosView() {
                   })
                 }
                 onUpdate={(id, patch) => api.criptoApi.update(id, patch)}
+                onConfirmarDato={(id, campo) => api.criptoApi.confirmar(id, campo)}
                 onDelete={(id) => api.criptoApi.remove(id)}
                 onImport={() => {
                   setImportMsg(null);
@@ -662,7 +726,7 @@ export default function AhorrosView() {
                   { key: "activo", label: "Activo", editable: true, required: true },
                   { key: "cantidad", label: "Cantidad", editable: true, type: "number", align: "right", required: true, gt: 0 },
                   { key: "precio_compra", label: `Precio compra (${c.moneda})`, editable: true, type: "number", align: "right", min: 0 },
-                  { key: "precio_actual", label: `Precio actual (${c.moneda})`, editable: true, type: "number", align: "right", min: 0 },
+                  { key: "precio_actual", label: `Precio actual (${c.moneda})`, editable: true, type: "number", align: "right", min: 0, dato: "precio" },
                   { key: nativeKey, label: `Valor actual (${c.moneda})`, align: "right", format: nativeFmt },
                   { key: "pl", label: "P&L", align: "right", format: (v) => (v === null ? "—" : nativeFmt(v)) },
                   { key: "plPct", label: "P&L %", align: "right", format: (v) => (v === null ? "—" : fmtPct(v)) },
@@ -742,6 +806,12 @@ export default function AhorrosView() {
                           value={editingTasa[r.id] ?? r.tasa_anual ?? 0}
                           onChange={(v) => setEditingTasa((prev) => ({ ...prev, [r.id]: v }))}
                           onBlur={() => handleTasaBlur(c.id, r)}
+                          extra={
+                            <DatoViejo
+                              estado={estadoDato({ tipo: "tna", valor: r.tasa_anual, at: r.tasa_anual_at })}
+                              onConfirmar={() => confirmarTna(c.id, r.id, api.usdtApi, "tasa_anual")}
+                            />
+                          }
                         />
                         <Cell align="right" value={saldoActual} format={fmtUSD} />
                         <Cell align="right" value={rendimiento} format={fmtUSD} />
@@ -827,6 +897,12 @@ export default function AhorrosView() {
                           value={editingTasaPesos[r.id] ?? r.tasa_tna ?? 0}
                           onChange={(v) => setEditingTasaPesos((prev) => ({ ...prev, [r.id]: v }))}
                           onBlur={() => handleTasaPesosBlur(c.id, r)}
+                          extra={
+                            <DatoViejo
+                              estado={estadoDato({ tipo: "tna", valor: r.tasa_tna, at: r.tasa_tna_at })}
+                              onConfirmar={() => confirmarTna(c.id, r.id, api.pesosApi, "tasa_tna")}
+                            />
+                          }
                         />
                         <Cell align="right" value={saldoActual} format={fmtARS} />
                         <Cell align="right" value={rendimiento} format={fmtARS} />

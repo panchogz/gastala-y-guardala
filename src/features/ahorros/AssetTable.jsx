@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Table, Cell } from "../../components/Table.jsx";
 import MobileEntryForm from "../../components/MobileEntryForm.jsx";
+import DatoViejo from "../../components/DatoViejo.jsx";
+import { estadoDato, ahoraISO } from "../../lib/desactualizado.js";
 import { useIsMobile } from "../../lib/useIsMobile.js";
 
 export default function AssetTable({
@@ -17,14 +19,25 @@ export default function AssetTable({
   onDelete,
   onImport,
   dense,
+  onConfirmarDato,
 }) {
   const isMobile = useIsMobile();
   const [entryOpen, setEntryOpen] = useState(false);
   const enriched = rows.map((r) => ({ ...r, ...computeRow(r) }));
   const totals = totalFn(enriched);
 
+  // Columnas con `dato` (ej. precio_actual) llevan indicador de desactualizado:
+  // al editarlas se marca <campo>_at localmente (en la base lo pone el trigger).
   function updateLocal(id, key, val) {
-    setRows((rs) => rs.map((r) => (r.id === id ? { ...r, [key]: val } : r)));
+    const conDato = columns.some((c) => c.key === key && c.dato);
+    setRows((rs) =>
+      rs.map((r) => (r.id === id ? { ...r, [key]: val, ...(conDato ? { [`${key}_at`]: ahoraISO() } : {}) } : r))
+    );
+  }
+
+  async function confirmarDato(id, campo) {
+    await onConfirmarDato(id, campo);
+    setRows((rs) => rs.map((r) => (r.id === id ? { ...r, [`${campo}_at`]: ahoraISO() } : r)));
   }
 
   async function saveRow(row) {
@@ -80,6 +93,14 @@ export default function AssetTable({
                   value={r[c.key] ?? ""}
                   onChange={(v) => updateLocal(r.id, c.key, v)}
                   onBlur={() => saveRow(r)}
+                  extra={
+                    c.dato && (
+                      <DatoViejo
+                        estado={estadoDato({ tipo: c.dato, valor: r[c.key], at: r[`${c.key}_at`] })}
+                        onConfirmar={onConfirmarDato && (() => confirmarDato(r.id, c.key))}
+                      />
+                    )
+                  }
                 />
               ) : (
                 <Cell key={c.key} align={c.align} value={r[c.key]} format={c.format} />

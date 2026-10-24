@@ -26,6 +26,13 @@ export async function saveCotizacionUsdt(dolar_usdt) {
   await queuedUpsert("cotizaciones", { user_id, dolar_usdt }, "user_id");
 }
 
+// "Sigue igual" del indicador de datos desactualizados: renueva <campo>_at sin
+// tocar el valor (el trigger lo conserva porque el valor no cambió).
+export async function confirmarCotizacion(campo) {
+  const user_id = await getUserId();
+  await queuedUpdate("cotizaciones", "user_id", user_id, { [`${campo}_at`]: new Date().toISOString() });
+}
+
 // ---------- cuentas de ahorro (lista dinámica, una por instrumento concreto) ----------
 
 export async function fetchCuentasAhorro() {
@@ -89,6 +96,10 @@ function tableApi(table) {
     },
     async remove(id) {
       await queuedDelete(table, "id", id);
+    },
+    // "Sigue igual": renueva <campo>_at sin tocar el valor (ver confirmarCotizacion).
+    async confirmar(id, campo) {
+      await queuedUpdate(table, "id", id, { [`${campo}_at`]: new Date().toISOString() });
     },
   };
 }

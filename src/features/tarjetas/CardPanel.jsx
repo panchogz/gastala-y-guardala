@@ -3,6 +3,8 @@ import { Table, Cell } from "../../components/Table.jsx";
 import ImportarResumenModal from "../../components/ImportarResumenModal.jsx";
 import MobileEntryForm from "../../components/MobileEntryForm.jsx";
 import HelpTip from "../../components/HelpTip.jsx";
+import DatoViejo from "../../components/DatoViejo.jsx";
+import { estadoDato, ahoraISO } from "../../lib/desactualizado.js";
 import { fmtARS, fmtUSD, fmtPct, cuotaInfo, todayISO } from "../../lib/helpers.js";
 import { totalesTarjeta } from "./totales.js";
 import { useIsMobile } from "../../lib/useIsMobile.js";
@@ -55,7 +57,9 @@ export default function CardPanel({
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  const [config, setConfig] = useState({ cotizacion: 1200 });
+  // existe: hay fila en tarjeta_config (si no, se usa 1200 por defecto);
+  // cotizacion_at: para el indicador de dato desactualizado.
+  const [config, setConfig] = useState({ cotizacion: 1200, cotizacion_at: null, existe: true });
   const [cuotas, setCuotas] = useState([]);
   const [dolares, setDolares] = useState([]);
   const [recurrentes, setRecurrentes] = useState([]);
@@ -96,7 +100,7 @@ export default function CardPanel({
           api.fetchRecurrentes(tarjetaId),
         ]);
         if (cancelled) return;
-        setConfig({ cotizacion: cfg?.cotizacion ?? 1200 });
+        setConfig({ cotizacion: cfg?.cotizacion ?? 1200, cotizacion_at: cfg?.cotizacion_at ?? null, existe: !!cfg });
         setCuotas(cuotasRows);
         setDolares(dolaresRows);
         setRecurrentes(recurrentesRows);
@@ -150,6 +154,16 @@ export default function CardPanel({
   async function handleConfigBlur() {
     try {
       await api.saveConfig(tarjetaId, { cotizacion: Number(config.cotizacion) || 0 });
+      setConfig((c) => ({ ...c, existe: true }));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function confirmarCotizacion() {
+    try {
+      await api.confirmarCotizacionTarjeta(tarjetaId);
+      setConfig((c) => ({ ...c, cotizacion_at: ahoraISO() }));
     } catch (e) {
       setError(e.message);
     }
@@ -324,12 +338,23 @@ export default function CardPanel({
         <div className="head-inputs">
           <label>
             <span>
-              Cotización dólar <HelpTip id="dolares" />
+              Cotización dólar <HelpTip id="dolares" />{" "}
+              <DatoViejo
+                estado={estadoDato({
+                  tipo: "cotizacion",
+                  valor: config.cotizacion,
+                  at: config.cotizacion_at,
+                  sinFila: !config.existe,
+                  valorDefecto: 1200,
+                  fmt: fmtARS,
+                })}
+                onConfirmar={confirmarCotizacion}
+              />
             </span>
             <input
               type="number"
               value={config.cotizacion}
-              onChange={(e) => setConfig((c) => ({ ...c, cotizacion: e.target.value }))}
+              onChange={(e) => setConfig((c) => ({ ...c, cotizacion: e.target.value, cotizacion_at: ahoraISO() }))}
               onBlur={handleConfigBlur}
             />
           </label>

@@ -85,6 +85,17 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 .help-pop p { margin: 0 0 6px 0; }
+/* Indicador de dato desactualizado: punto ámbar (con aria-label/title, no solo
+   color) que abre el mismo popover que HelpTip. */
+.dato-viejo {
+  position: relative; display: inline-block; flex: none; width: 9px; height: 9px; margin-left: 4px;
+  padding: 0; border: none; border-radius: 50%; background: #E8A855; vertical-align: middle;
+  box-shadow: 0 0 0 3px rgba(232, 168, 85, 0.22); cursor: pointer;
+}
+/* Área táctil más grande que el punto, para el dedo. */
+.dato-viejo::after { content: ""; position: absolute; inset: -12px; }
+.cell-con-extra { display: flex; align-items: center; gap: 4px; }
+.cell-con-extra .cell-input { flex: 1; min-width: 0; }
 .help-pop .login-resend { margin: 0; padding: 4px 0; font-size: 13px; }
 
 /* Modal de Ayuda (acordeón) */

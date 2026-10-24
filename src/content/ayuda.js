@@ -24,7 +24,7 @@ export const AYUDA = [
         pregunta: "¿Cómo funcionan los gastos en dólares?",
         respuesta:
           "Cargalos en dólares, tal cual figuran en el resumen. La app los pasa a pesos con la cotización que pusiste arriba en esa tarjeta. Actualizala cuando cambie, así el total del mes se acerca a lo que vas a pagar.",
-        tip: "Se usa para pasar a pesos los gastos en dólares de esta tarjeta. Actualizala cuando cambie.",
+        tip: "Se usa para pasar a pesos los gastos en dólares de esta tarjeta. Actualizala cuando cambie: si pasan 7 días sin tocarla, aparece un punto ámbar.",
       },
       {
         id: "suscripciones",
@@ -108,8 +108,14 @@ export const AYUDA = [
         tips: {
           saldo:
             "El total que tenés hoy, no lo que agregaste. Para un aporte o retiro, partí del “Saldo actual” y escribí el total nuevo.",
-          tna: "La tasa anual tal cual la muestra tu banco. Actualizala cuando cambie: el interés ganado hasta hoy no se pierde.",
+          tna: "La tasa anual tal cual la muestra tu banco. Actualizala cuando cambie: el interés ganado hasta hoy no se pierde. Si pasan 30 días sin cambios, aparece un punto ámbar para que la revises.",
         },
+      },
+      {
+        id: "punto-ambar",
+        pregunta: "¿Qué es el punto ámbar junto a un valor?",
+        respuesta:
+          "Te avisa que un dato que cargás a mano puede estar viejo: un precio o una cotización sin actualizar hace 7 días o más, o una TNA sin cambios hace 30. Tocalo para ver hace cuánto; si el valor sigue siendo el correcto, tocá “Sigue igual” y el aviso se va sin cambiar nada. También aparece si un precio o una cotización está en 0, o si todavía no la cargaste y la app está usando un valor por defecto.",
       },
       {
         id: "usdt",

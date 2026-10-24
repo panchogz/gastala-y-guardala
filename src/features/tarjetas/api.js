@@ -49,6 +49,12 @@ export async function saveSalarioNeto(salario_neto) {
 
 // ---------- config por tarjeta (cotización) ----------
 
+// "Sigue igual" del indicador de datos desactualizados: renueva cotizacion_at
+// sin tocar el valor. RLS limita el update a las filas del usuario.
+export async function confirmarCotizacionTarjeta(tarjetaId) {
+  await queuedUpdate("tarjeta_config", "tarjeta_id", tarjetaId, { cotizacion_at: new Date().toISOString() });
+}
+
 export async function fetchConfig(tarjetaId) {
   const { data, error } = await supabase
     .from("tarjeta_config")
