@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Table, Cell } from "../../components/Table.jsx";
 import ImportarResumenModal from "../../components/ImportarResumenModal.jsx";
 import MobileEntryForm from "../../components/MobileEntryForm.jsx";
-import { fmtARS, fmtUSD, fmtPct, cuotaInfo, todayISO } from "../../lib/helpers.js";
+import { fmtARS, fmtUSD, fmtPct, cuotaInfo, mismoDiaEnMeses, todayISO } from "../../lib/helpers.js";
 import { useIsMobile } from "../../lib/useIsMobile.js";
 import * as api from "./api.js";
 
@@ -39,7 +39,7 @@ const ENTRY_FIELDS = {
   },
 };
 
-export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
+export default function CardPanel({ tarjetaId, name, accent, onRegistered, onTotalsChange }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -110,6 +110,27 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
   );
   const totalAPagar = totalCuotas + totalDolares + totalRecurrentes;
   const pctSalario = Number(config.salario_neto) > 0 ? totalAPagar / Number(config.salario_neto) : 0;
+
+  // Compromisos de los próximos 3 meses (tramo punteado del gráfico de Total
+  // mensual): cuotas que tengan una cuota en ese mes (cuotaInfo evaluado en la
+  // misma fecha k meses después) + recurrentes activas a monto constante. Sin
+  // gastos en dólares ni compras en un pago: no están comprometidos a futuro.
+  const [futuro1, futuro2, futuro3] = [1, 2, 3].map((k) => {
+    const fecha = mismoDiaEnMeses(today, k);
+    const cuotasMes = cuotas.reduce((a, r) => {
+      const c = cuotaInfo(r, fecha);
+      return a + (c.activa ? c.montoPorCuota : 0);
+    }, 0);
+    return cuotasMes + totalRecurrentes;
+  });
+
+  // Informa los totales en vivo a TarjetasView para el gráfico. Deps solo
+  // primitivas: el efecto corre cuando cambia algún número, no en cada render.
+  useEffect(() => {
+    if (loading) return;
+    onTotalsChange?.(tarjetaId, { actual: totalAPagar, futuros: [futuro1, futuro2, futuro3] });
+  }, [loading, tarjetaId, totalAPagar, futuro1, futuro2, futuro3, onTotalsChange]);
+  useEffect(() => () => onTotalsChange?.(tarjetaId, null), [tarjetaId, onTotalsChange]);
 
   async function handleConfigBlur() {
     try {

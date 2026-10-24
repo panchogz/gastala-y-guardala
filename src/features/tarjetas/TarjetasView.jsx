@@ -9,6 +9,27 @@ export default function TarjetasView() {
   const [monthly, setMonthly] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // Totales en vivo que informa cada CardPanel: { [tarjetaId]: { actual, futuros: [m1, m2, m3] } }.
+  // Alimentan el mes actual y los 3 meses a futuro del gráfico de Total mensual.
+  const [live, setLive] = useState({});
+
+  // Estable (deps []) y sin setear si los números no cambiaron: evita que el
+  // efecto de CardPanel que la llama dispare renders en loop.
+  const handleTotalsChange = useCallback((tarjetaId, totals) => {
+    setLive((prev) => {
+      const old = prev[tarjetaId];
+      if (!totals) {
+        if (!old) return prev;
+        const next = { ...prev };
+        delete next[tarjetaId];
+        return next;
+      }
+      if (old && old.actual === totals.actual && old.futuros.every((v, i) => v === totals.futuros[i])) {
+        return prev;
+      }
+      return { ...prev, [tarjetaId]: totals };
+    });
+  }, []);
 
   const loadTarjetas = useCallback(async () => {
     const rows = await api.fetchTarjetas();
@@ -70,6 +91,7 @@ export default function TarjetasView() {
               name={t.nombre}
               accent={t.color}
               onRegistered={loadMonthly}
+              onTotalsChange={handleTotalsChange}
             />
           ))}
         </div>
@@ -78,7 +100,7 @@ export default function TarjetasView() {
       <div className="subhead" style={{ marginTop: 28 }}>
         Total mensual
       </div>
-      <TotalMensual rows={monthly} tarjetas={tarjetas} />
+      <TotalMensual rows={monthly} tarjetas={tarjetas} live={live} />
     </div>
   );
 }

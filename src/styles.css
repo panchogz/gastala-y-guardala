@@ -192,6 +192,14 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
 }
 .modal-box-wide { max-width: 720px; max-height: 88vh; overflow-y: auto; }
 
+/* Tooltip del gráfico de Total mensual (Tarjetas). */
+.chart-tooltip {
+  background: #1D232B; border: 1px solid #2A313B; color: #E8E6E1;
+  padding: 8px 10px; font-size: 12px; line-height: 1.5; max-width: 240px;
+}
+.chart-tooltip-title { color: #8B93A1; margin-bottom: 2px; }
+.chart-tooltip-strong { font-weight: 600; }
+
 /* MobileEntryForm: alta de filas en mobile como bottom sheet. Misma paleta y
    radios que .modal-box. top/height los pisa el componente con el
    visualViewport (teclado de iOS); 100dvh es el fallback. Inputs a 16px: con

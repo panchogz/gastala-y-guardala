@@ -71,6 +71,23 @@ export const currentMonthISO = () => {
 
 export const currentMonthKey = () => new Date().toISOString().slice(0, 7);
 
+// La misma fecha (día del mes) k meses después; si ese mes es más corto, el
+// último día (31/1 + 1 → 28/2). Para evaluar cuotaInfo en meses futuros.
+export function mismoDiaEnMeses(date, k) {
+  const y = date.getFullYear();
+  const m = date.getMonth() + k;
+  const ultimoDia = new Date(y, m + 1, 0).getDate();
+  return new Date(y, m, Math.min(date.getDate(), ultimoDia));
+}
+
+// "YYYY-MM" de una fecha local (no UTC, a diferencia de currentMonthKey).
+export const monthKeyOf = (date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+
+// Montos compactos para ejes de gráficos: 150000 → "$150 k", 1534000 → "$1,5 M".
+const compactFmt = new Intl.NumberFormat("es-AR", { notation: "compact", maximumFractionDigits: 1 });
+export const fmtARSCompact = (n) => `$${compactFmt.format(Number(n) || 0)}`;
+
 // Parsea números que pueden venir como number (ya ok) o como string con
 // formato variado (del JSON pegado de un chat de IA, o de lo que el usuario
 // edite a mano en la revisión de importación): símbolos de moneda, separador
