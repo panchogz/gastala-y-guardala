@@ -48,8 +48,6 @@ export async function saveSalarioNeto(salario_neto) {
 }
 
 // ---------- config por tarjeta (cotización) ----------
-// tarjeta_config.salario_neto ya no se usa (pasó a config_usuario); la columna
-// queda en la base hasta que se elimine (ver roadmap).
 
 export async function fetchConfig(tarjetaId) {
   const { data, error } = await supabase

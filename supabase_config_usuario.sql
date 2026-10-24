@@ -1,3 +1,6 @@
+-- Ya corrido (10/2026). El insert del final lee tarjeta_config.salario_neto,
+-- eliminada después por supabase_drop_salario_tarjeta.sql: no volver a correr esa parte.
+--
 -- Salario neto único por usuario (reemplaza a tarjeta_config.salario_neto,
 -- que la app deja de usar; la columna vieja se elimina más adelante).
 -- Correr en el SQL Editor de Supabase ANTES de desplegar la app que lo usa.

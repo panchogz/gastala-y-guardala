@@ -126,11 +126,7 @@
    (`tnaAMensual` / `mensualATna` en helpers.js) convierten tasas pero no reemplazan
    estas copias. Extraer un helper `saldoConInteres(saldo, tna, dias)` y reusarlo.
 
-3. **Columna `tarjeta_config.salario_neto` sin uso.** Desde el salario único por
-   usuario (tabla `config_usuario`, script `supabase_config_usuario.sql`), la app ya no
-   lee ni escribe esa columna; quedó en la base solo por prudencia en la migración.
-   Eliminarla cuando el salario único lleve un tiempo andando en producción:
-   `alter table tarjeta_config drop column salario_neto;`
+3. ~~Columna `tarjeta_config.salario_neto` sin uso~~ — resuelto, ver "Resuelto".
 
 ## Docs a actualizar al cerrar cada feature
 
@@ -139,6 +135,12 @@
 - `GUIA_DE_USO.md` (interna).
 
 ## Resuelto
+
+- **Salario neto único por usuario + "% del salario" total (ex deuda técnica 3).**
+  El salario pasó de `tarjeta_config` (uno por tarjeta) a la tabla `config_usuario`
+  (uno por usuario, `supabase_config_usuario.sql`), editable en una franja arriba de
+  las tarjetas con el total de todas y su %. Commit `1147fbd`. La columna vieja
+  `tarjeta_config.salario_neto` se eliminó con `supabase_drop_salario_tarjeta.sql`.
 
 - **Cuotas terminadas dejaban de restar (bug).** "Total a pagar" sumaba la cuota de
   compras ya terminadas hasta que se borraban a mano. Fix: `cuotaInfo(row, fecha)`
