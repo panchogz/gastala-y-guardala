@@ -45,9 +45,16 @@ function mostrarTostadaActualizacion(onRecargar) {
   document.body.appendChild(toast);
 }
 
+// true desde que en esta ventana se detectó una versión nueva esperando: si el
+// aviso se cerró con la ×, vuelve a mostrarse cuando la app vuelve a primer
+// plano (ver visibilitychange abajo). Solo en ventanas donde ya corrió
+// onNeedRefresh: ahí registerSW dejó armada la recarga al tocar "Recargar".
+let actualizacionPendiente = false;
+
 const updateSW = registerSW({
   immediate: true,
   onNeedRefresh() {
+    actualizacionPendiente = true;
     mostrarTostadaActualizacion(() => updateSW(true));
   },
   onRegisteredSW(_swUrl, registration) {
@@ -64,9 +71,12 @@ const updateSW = registerSW({
 // browser). Se fuerza un chequeo manual cada vez que la app vuelve a primer
 // plano.
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible") {
-    navigator.serviceWorker?.getRegistration().then((reg) => reg?.update());
+  if (document.visibilityState !== "visible") return;
+  if (actualizacionPendiente) {
+    mostrarTostadaActualizacion(() => updateSW(true));
+    return;
   }
+  navigator.serviceWorker?.getRegistration().then((reg) => reg?.update());
 });
 
 ReactDOM.createRoot(document.getElementById("root")).render(
