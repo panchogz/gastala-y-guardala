@@ -42,23 +42,7 @@
 9. ~~Extensión del análisis de spread a Buenbit~~ — descartado, ver "Decisiones ya
    tomadas".
 
-10. **Mejoras a la importación de resúmenes (detectadas al probar con resúmenes reales).**
-    La feature base ya está en producción (ver "Resuelto"). Pendientes chicos:
-    - **[Prioridad alta, antes de invitar amigos] `fecha_cierre` null:** una captura
-      parcial del resumen puede no traerla, y la Etapa 2 la necesita para calcular la
-      fecha de compra. Si llega null, pedirla en la revisión (input obligatorio, default
-      sugerido: última `fecha_compra`).
-    - **`es_suscripcion` editable en la revisión,** no solo el checkbox de incluir: el
-      chat no puede distinguir descriptores ambiguos (ej. `MERPAGO*MELI` = MELI+, no una
-      compra en Mercado Libre). Permitir mover la fila entre "Un pago" y "Suscripciones".
-    - **[Prioridad alta, antes de invitar amigos] Deduplicar suscripciones dentro del
-      mismo JSON** (comercio + monto): un resumen puede cubrir dos ciclos (ej. LinkedIn
-      cobrado el 22/08 y el 22/09) y hoy se crearían dos recurrentes iguales.
-    - **Validación contra el total del resumen:** sumar `total_consumos_ars` /
-      `total_consumos_usd` (opcionales) al schema y compararlos con la suma de filas en la
-      revisión. Detecta errores de lectura (en la prueba, una cuota 12/12 se leyó 12/18
-      desde una foto; el PDF la tenía bien).
-    - Probado: el PDF es más confiable que capturas/fotos — sugerirlo en las instrucciones.
+10. ~~Mejoras a la importación de resúmenes~~ — resuelto, ver "Resuelto".
 
 11. **[Posible mejora, solo si molesta en la práctica] Día de cierre aproximado por
     tarjeta.** Hoy la cuota cambia el día del mes de la compra, no en la fecha de
@@ -129,6 +113,18 @@
 - `GUIA_DE_USO.md` (interna).
 
 ## Resuelto
+
+- **Mejoras a la importación de resúmenes de tarjeta (ex pendiente 10).** Fecha de
+  cierre siempre visible en la revisión, precargada con la del JSON; si falta o es
+  inválida se sugiere la compra más reciente y es obligatoria para importar. Las fechas
+  calculadas (cuotas; un pago y dólares sin fecha de compra) se recalculan en vivo,
+  salvo las editadas a mano. Filas ARS se pasan entre "Un pago" y "Suscripciones" (se
+  reaplican tildado, notas y duplicados del grupo destino). Suscripciones repetidas en
+  el mismo resumen se muestran una vez ("Aparece N veces" / "Monto cambió en el período:
+  se usa el último"); mover una repetida a Un pago mueve todas sus ocurrencias. Prompt
+  con total_consumos_ars/usd y aviso no bloqueante si la suma leída difiere más de 1%.
+  El paso 1 sugiere el PDF. La lógica de revisión vive en importResumen.js como
+  funciones puras. Commit `008d392`.
 
 - **Ventanas de meses en gráficos y tablas, app y Excel (ex pendiente 2).** Ventanas por
   calendario, un mes sin foto queda como hueco. App: Tarjetas grafica M−2..M en vivo +
