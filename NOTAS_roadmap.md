@@ -254,8 +254,7 @@
   conservador de solo 44 valores distintos. Sigue siendo puramente informativo — no
   dispara ningún cambio de código, el campo "Cotización USDT" se sigue completando a
   mano. Detalle completo (con test de hipótesis formal, tamaño de efecto y chequeo de
-  supuestos) en `GUIA_DE_USO.md`, sección "Resultado del análisis", y en el informe
-  `analisis_spread_usdt.docx`.
+  supuestos) en `GUIA_DE_USO.md`, sección "Resultado del análisis".
 
 - **Rediseño de USD/Stable con interés compuesto.** Reemplazó el modelo de Costo Total /
   Valor Actual manual (que sugería que USDT fluctúa como un activo especulativo) por
@@ -419,11 +418,9 @@
 - Historial de specs y addendums de cada etapa, guardados en la raíz del proyecto local
   (no reflejan el estado actual del código, son registro de cómo se llegó hasta acá):
   HISTORIAL_spec_inicial.md, HISTORIAL_addendum_generalizacion.md,
-  HISTORIAL_addendum_multiusuario_v2.md, FEATURE_gastos_recurrentes.md,
-  FEATURE_export_excel.md, GUIA_keep_alive.md, PLAYBOOK_proyectos_react_supabase.md.
+  HISTORIAL_addendum_multiusuario_v2.md.
 - Spec ya implementado (importación de resúmenes): FEATURE_importacion_resumenes.md;
   versión anterior solo de tenencia: HISTORIAL_importacion_tenencia.md.
-- Spec ya implementado, queda como referencia: FEATURE_usdt_interes_compuesto.md.
 - Guía procedural vigente (sí refleja el proceso actual): GUIA_deploy_vercel.md.
 - Guía de uso para cargar datos correctamente: GUIA_DE_USO.md.
 - Polling de spread cripto (análisis de Lemon/Binance P2P, cerrado): solo en la carpeta
