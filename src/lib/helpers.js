@@ -92,19 +92,23 @@ export const monthKeyOf = (date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 
 // Montos compactos para ejes de gráficos (ARS o USD, la moneda la aclara el
-// gráfico): centenas completas, miles con "k", millones con "M", hasta un
-// decimal. 950 → "$950", 1500 → "$1,5 k", 800000 → "$800 k", 1534000 →
-// "$1,5 M". A mano y no con Intl notation:"compact": en es-AR ese da "1,5 K"
+// gráfico): millones con "M", hasta un decimal. Con usarK (mobile, poco
+// ancho) también los miles con "k"; sin usarK (desktop) los miles van
+// completos. 950 → "$950", 800000 → "$800 k" | "$800.000", 1534000 → "$1,5 M".
+// A mano y no con Intl notation:"compact": en es-AR ese da "1,5 K"
 // (mayúscula) entre 1.000 y 9.999 y "12 k" desde 10.000.
-export function fmtCompact(n) {
+export function fmtCompact(n, { usarK = true } = {}) {
   const v = Number(n) || 0;
   const signo = v < 0 ? "-" : "";
   const abs = Math.abs(v);
   const num = (x) => x.toLocaleString("es-AR", { maximumFractionDigits: 1 });
-  if (Math.round(abs) < 1000) return `${signo}$${num(Math.round(abs))}`;
-  const miles = Math.round(abs / 100) / 10;
-  // 999.950 redondea a "1000 k": se pasa a millones.
-  if (miles < 1000) return `${signo}$${num(miles)} k`;
+  const limite = usarK ? 1000 : 1000000;
+  if (Math.round(abs) < limite) return `${signo}$${num(Math.round(abs))}`;
+  if (usarK) {
+    const miles = Math.round(abs / 100) / 10;
+    // 999.950 redondea a "1000 k": se pasa a millones.
+    if (miles < 1000) return `${signo}$${num(miles)} k`;
+  }
   return `${signo}$${num(Math.round(abs / 100000) / 10)} M`;
 }
 

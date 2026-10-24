@@ -14,6 +14,7 @@ import GestionarCuentas, { tipoLabel } from "./GestionarCuentas.jsx";
 import ImportarResumenModal from "../../components/ImportarResumenModal.jsx";
 import { Table, Cell } from "../../components/Table.jsx";
 import { fmtARS, fmtUSD, fmtPct, fmtCompact, mesLabel, mesLabelLargo, todayISO } from "../../lib/helpers.js";
+import { useIsMobile } from "../../lib/useIsMobile.js";
 import * as api from "./api.js";
 
 function apiForTipo(tipo) {
@@ -37,6 +38,7 @@ function sortByLabel(rows, field) {
 }
 
 export default function AhorrosView() {
+  const isMobile = useIsMobile();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -946,7 +948,7 @@ export default function AhorrosView() {
                       width={64}
                       stroke="#8B93A1"
                       fontSize={12}
-                      tickFormatter={fmtCompact}
+                      tickFormatter={(v) => fmtCompact(v, { usarK: isMobile })}
                       label={{ value: monedaEvolucion, angle: -90, position: "insideLeft", fill: "#8B93A1", fontSize: 12 }}
                     />
                     <Tooltip
