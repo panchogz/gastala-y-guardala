@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import {
   fmtARS,
-  fmtARSCompact,
+  fmtCompact,
   mesLabel,
   mesLabelCorto,
   mesLabelLargo,
@@ -157,7 +157,7 @@ export default function TotalMensual({ rows, tarjetas, live = {} }) {
               width={isMobile ? 44 : 64}
               stroke="#8B93A1"
               fontSize={isMobile ? 10 : 12}
-              tickFormatter={fmtARSCompact}
+              tickFormatter={fmtCompact}
             />
             <Tooltip content={<ChartTooltip tarjetas={tarjetas} />} />
             <Legend

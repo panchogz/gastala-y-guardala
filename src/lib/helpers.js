@@ -91,9 +91,22 @@ export function mismoDiaEnMeses(date, k) {
 export const monthKeyOf = (date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 
-// Montos compactos para ejes de gráficos: 150000 → "$150 k", 1534000 → "$1,5 M".
-const compactFmt = new Intl.NumberFormat("es-AR", { notation: "compact", maximumFractionDigits: 1 });
-export const fmtARSCompact = (n) => `$${compactFmt.format(Number(n) || 0)}`;
+// Montos compactos para ejes de gráficos (ARS o USD, la moneda la aclara el
+// gráfico): centenas completas, miles con "k", millones con "M", hasta un
+// decimal. 950 → "$950", 1500 → "$1,5 k", 800000 → "$800 k", 1534000 →
+// "$1,5 M". A mano y no con Intl notation:"compact": en es-AR ese da "1,5 K"
+// (mayúscula) entre 1.000 y 9.999 y "12 k" desde 10.000.
+export function fmtCompact(n) {
+  const v = Number(n) || 0;
+  const signo = v < 0 ? "-" : "";
+  const abs = Math.abs(v);
+  const num = (x) => x.toLocaleString("es-AR", { maximumFractionDigits: 1 });
+  if (Math.round(abs) < 1000) return `${signo}$${num(Math.round(abs))}`;
+  const miles = Math.round(abs / 100) / 10;
+  // 999.950 redondea a "1000 k": se pasa a millones.
+  if (miles < 1000) return `${signo}$${num(miles)} k`;
+  return `${signo}$${num(Math.round(abs / 100000) / 10)} M`;
+}
 
 // Parsea números que pueden venir como number (ya ok) o como string con
 // formato variado (del JSON pegado de un chat de IA, o de lo que el usuario

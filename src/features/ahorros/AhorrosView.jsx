@@ -13,7 +13,7 @@ import AssetTable from "./AssetTable.jsx";
 import GestionarCuentas, { tipoLabel } from "./GestionarCuentas.jsx";
 import ImportarResumenModal from "../../components/ImportarResumenModal.jsx";
 import { Table, Cell } from "../../components/Table.jsx";
-import { fmtARS, fmtUSD, fmtPct, mesLabel, mesLabelLargo, todayISO } from "../../lib/helpers.js";
+import { fmtARS, fmtUSD, fmtPct, fmtCompact, mesLabel, mesLabelLargo, todayISO } from "../../lib/helpers.js";
 import * as api from "./api.js";
 
 function apiForTipo(tipo) {
@@ -946,6 +946,7 @@ export default function AhorrosView() {
                       width={64}
                       stroke="#8B93A1"
                       fontSize={12}
+                      tickFormatter={fmtCompact}
                       label={{ value: monedaEvolucion, angle: -90, position: "insideLeft", fill: "#8B93A1", fontSize: 12 }}
                     />
                     <Tooltip
