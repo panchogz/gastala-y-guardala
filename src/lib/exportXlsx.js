@@ -1,6 +1,6 @@
 import * as api from "../features/tarjetas/api.js";
 import * as ahorrosApi from "../features/ahorros/api.js";
-import { cuotaInfo, currentMonthKey, currentMonthISO, todayISO, ventanaMeses } from "./helpers.js";
+import { cuotaInfo, currentMonthISO, nombreExport, todayISO, ventanaMeses } from "./helpers.js";
 import { totalesTarjeta } from "../features/tarjetas/totales.js";
 
 // El export no reusa el estado ya cargado en TarjetasView/CardPanel (queda
@@ -394,7 +394,7 @@ export async function downloadExport(incluirDetalleTarjetas, incluirDetalleAhorr
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `GastalaYGuardala_${currentMonthKey()}.xlsx`;
+  a.download = `${nombreExport()}.xlsx`;
   document.body.appendChild(a);
   a.click();
   a.remove();

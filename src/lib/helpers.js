@@ -76,7 +76,10 @@ export const currentMonthISO = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 };
 
-export const currentMonthKey = () => new Date().toISOString().slice(0, 7);
+// Nombre de los archivos exportados: "GyG-2026-Oct" (iniciales de la app,
+// año y mes abreviado, con la fecha local). Usar para todo export nuevo.
+const MESES_CORTOS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+export const nombreExport = (hoy = new Date()) => `GyG-${hoy.getFullYear()}-${MESES_CORTOS[hoy.getMonth()]}`;
 
 // La misma fecha (día del mes) k meses después; si ese mes es más corto, el
 // último día (31/1 + 1 → 28/2). Para evaluar cuotaInfo en meses futuros.
@@ -87,7 +90,7 @@ export function mismoDiaEnMeses(date, k) {
   return new Date(y, m, Math.min(date.getDate(), ultimoDia));
 }
 
-// "YYYY-MM" de una fecha local (no UTC, a diferencia de currentMonthKey).
+// "YYYY-MM" de una fecha local (no UTC).
 export const monthKeyOf = (date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 
