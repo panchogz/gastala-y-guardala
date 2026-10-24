@@ -101,3 +101,15 @@ export function parseNumeroFlexible(input) {
   if (!Number.isFinite(parsed)) return null;
   return negativo ? -parsed : parsed;
 }
+
+// Parser estricto para inputs numéricos tipeados a mano (MobileEntryForm):
+// el único separador permitido (coma o punto) es SIEMPRE decimal. No usar
+// parseNumeroFlexible acá: ese interpreta "0,500" como 500 (grupo de miles),
+// pensado para texto de resúmenes, no para un teclado decimal.
+// ""->null, "12,5"->12.5, "-3.2"->-3.2, "1.234,5"->NaN (inválido).
+export function parseDecimalInput(input) {
+  const s = String(input ?? "").trim();
+  if (s === "") return null;
+  if (!/^-?(\d+([.,]\d*)?|[.,]\d+)$/.test(s)) return NaN;
+  return Number(s.replace(",", "."));
+}

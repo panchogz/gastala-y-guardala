@@ -564,12 +564,13 @@ export default function AhorrosView() {
                 rows={sortByLabel(activosPorCuenta[c.id] || [], "ticker")}
                 setRows={setRowsFor(c.id)}
                 fields={["ticker", "cantidad", "precio_compra", "precio_actual"]}
-                onAdd={() =>
+                onAdd={(values) =>
                   api.bolsaApi.insert(c.id, {
                     ticker: "",
                     cantidad: 0,
                     precio_compra: 0,
                     precio_actual: 0,
+                    ...values,
                   })
                 }
                 onUpdate={(id, patch) => api.bolsaApi.update(id, patch)}
@@ -579,10 +580,11 @@ export default function AhorrosView() {
                   setImportCuenta({ id: c.id, nombre: c.nombre, moneda: c.moneda, tipo: "bolsa" });
                 }}
                 columns={[
-                  { key: "ticker", label: "Ticker", editable: true },
-                  { key: "cantidad", label: "Cantidad", editable: true, type: "number", align: "right" },
-                  { key: "precio_compra", label: `Precio compra (${c.moneda})`, editable: true, type: "number", align: "right" },
-                  { key: "precio_actual", label: `Precio actual (${c.moneda})`, editable: true, type: "number", align: "right" },
+                  // required/gt/min: reglas del alta mobile (MobileEntryForm); la tabla las ignora.
+                  { key: "ticker", label: "Ticker", editable: true, required: true },
+                  { key: "cantidad", label: "Cantidad", editable: true, type: "number", align: "right", required: true, gt: 0 },
+                  { key: "precio_compra", label: `Precio compra (${c.moneda})`, editable: true, type: "number", align: "right", min: 0 },
+                  { key: "precio_actual", label: `Precio actual (${c.moneda})`, editable: true, type: "number", align: "right", min: 0 },
                   { key: nativeKey, label: `Valor actual (${c.moneda})`, align: "right", format: nativeFmt },
                   { key: "pl", label: "P&L", align: "right", format: (v) => (v === null ? "—" : nativeFmt(v)) },
                   { key: "plPct", label: "P&L %", align: "right", format: (v) => (v === null ? "—" : fmtPct(v)) },
@@ -611,12 +613,13 @@ export default function AhorrosView() {
                 rows={sortByLabel(activosPorCuenta[c.id] || [], "activo")}
                 setRows={setRowsFor(c.id)}
                 fields={["activo", "cantidad", "precio_compra", "precio_actual"]}
-                onAdd={() =>
+                onAdd={(values) =>
                   api.criptoApi.insert(c.id, {
                     activo: "",
                     cantidad: 0,
                     precio_compra: 0,
                     precio_actual: 0,
+                    ...values,
                   })
                 }
                 onUpdate={(id, patch) => api.criptoApi.update(id, patch)}
@@ -626,10 +629,11 @@ export default function AhorrosView() {
                   setImportCuenta({ id: c.id, nombre: c.nombre, moneda: c.moneda, tipo: "cripto" });
                 }}
                 columns={[
-                  { key: "activo", label: "Activo", editable: true },
-                  { key: "cantidad", label: "Cantidad", editable: true, type: "number", align: "right" },
-                  { key: "precio_compra", label: `Precio compra (${c.moneda})`, editable: true, type: "number", align: "right" },
-                  { key: "precio_actual", label: `Precio actual (${c.moneda})`, editable: true, type: "number", align: "right" },
+                  // required/gt/min: reglas del alta mobile (MobileEntryForm); la tabla las ignora.
+                  { key: "activo", label: "Activo", editable: true, required: true },
+                  { key: "cantidad", label: "Cantidad", editable: true, type: "number", align: "right", required: true, gt: 0 },
+                  { key: "precio_compra", label: `Precio compra (${c.moneda})`, editable: true, type: "number", align: "right", min: 0 },
+                  { key: "precio_actual", label: `Precio actual (${c.moneda})`, editable: true, type: "number", align: "right", min: 0 },
                   { key: nativeKey, label: `Valor actual (${c.moneda})`, align: "right", format: nativeFmt },
                   { key: "pl", label: "P&L", align: "right", format: (v) => (v === null ? "—" : nativeFmt(v)) },
                   { key: "plPct", label: "P&L %", align: "right", format: (v) => (v === null ? "—" : fmtPct(v)) },

@@ -1,4 +1,7 @@
+import { useState } from "react";
 import { Table, Cell } from "../../components/Table.jsx";
+import MobileEntryForm from "../../components/MobileEntryForm.jsx";
+import { useIsMobile } from "../../lib/useIsMobile.js";
 
 export default function AssetTable({
   title,
@@ -15,6 +18,8 @@ export default function AssetTable({
   onImport,
   dense,
 }) {
+  const isMobile = useIsMobile();
+  const [entryOpen, setEntryOpen] = useState(false);
   const enriched = rows.map((r) => ({ ...r, ...computeRow(r) }));
   const totals = totalFn(enriched);
 
@@ -28,8 +33,10 @@ export default function AssetTable({
     await onUpdate(row.id, patch);
   }
 
-  async function add() {
-    const row = await onAdd();
+  // values: solo desde MobileEntryForm. Desktop llama add() sin args y
+  // onAdd() inserta la fila con sus defaults, igual que siempre.
+  async function add(values) {
+    const row = await onAdd(values);
     setRows((rs) => [row, ...rs]);
   }
 
@@ -86,13 +93,27 @@ export default function AssetTable({
           </tr>
         ))}
       </Table>
-      <button className="btn-add" onClick={add}>
+      <button className="btn-add" onClick={() => (isMobile ? setEntryOpen(true) : add())}>
         + agregar
       </button>
       {onImport && (
         <button className="btn-import" onClick={onImport}>
           Importar resumen
         </button>
+      )}
+      {entryOpen && (
+        <MobileEntryForm
+          title={`Agregar — ${title}`}
+          accent={accent}
+          // El form sale de las mismas columnas editables de la tabla (label con
+          // moneda incluido); las reglas de validación viven en cada columna.
+          fields={columns.filter((c) => c.editable)}
+          onSubmit={async (values) => {
+            await add(values);
+            setEntryOpen(false);
+          }}
+          onCancel={() => setEntryOpen(false)}
+        />
       )}
     </div>
   );

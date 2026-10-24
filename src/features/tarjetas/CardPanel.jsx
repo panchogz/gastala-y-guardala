@@ -1,8 +1,43 @@
 import { useEffect, useState } from "react";
 import { Table, Cell } from "../../components/Table.jsx";
 import ImportarResumenModal from "../../components/ImportarResumenModal.jsx";
+import MobileEntryForm from "../../components/MobileEntryForm.jsx";
 import { fmtARS, fmtUSD, fmtPct, fullMonthsBetween, todayISO } from "../../lib/helpers.js";
+import { useIsMobile } from "../../lib/useIsMobile.js";
 import * as api from "./api.js";
+
+// Campos del alta mobile (MobileEntryForm) de cada tabla. OJO: acá las celdas
+// editables de la tabla están escritas a mano en el JSX (<Cell> más abajo), no
+// salen de esta config — si se agrega/saca/renombra un campo editable, hay que
+// mantener sincronizados ambos lados. Montos ≠ 0 en cuotas y dólares
+// (reintegros/bonificaciones vienen negativos); > 0 en recurrentes. El
+// "activo" de recurrentes no va en el form: se da de alta siempre activo.
+const ENTRY_FIELDS = {
+  cuotas: {
+    title: "Agregar compra en cuotas",
+    fields: [
+      { key: "fecha", label: "Fecha", type: "date", required: true, initial: todayISO },
+      { key: "comercio", label: "Comercio", required: true },
+      { key: "monto", label: "Monto (ARS)", type: "number", required: true, nonZero: true },
+      { key: "cuotas", label: "Cuotas", type: "number", integer: true, min: 1 },
+    ],
+  },
+  dolares: {
+    title: "Agregar gasto en dólares",
+    fields: [
+      { key: "fecha", label: "Fecha", type: "date", required: true, initial: todayISO },
+      { key: "comercio", label: "Comercio", required: true },
+      { key: "monto", label: "Monto (USD)", type: "number", required: true, nonZero: true },
+    ],
+  },
+  recurrentes: {
+    title: "Agregar suscripción",
+    fields: [
+      { key: "concepto", label: "Concepto", required: true },
+      { key: "monto", label: "Monto (ARS)", type: "number", required: true, gt: 0 },
+    ],
+  },
+};
 
 export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
   const [loading, setLoading] = useState(true);
@@ -17,6 +52,10 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
   // Modal de importación de resumen (Etapa 2). Ver FEATURE_importacion_resumenes.md.
   const [importOpen, setImportOpen] = useState(false);
   const [importMsg, setImportMsg] = useState(null);
+
+  // Alta mobile abierta: null | "cuotas" | "dolares" | "recurrentes".
+  const isMobile = useIsMobile();
+  const [entryTable, setEntryTable] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,22 +141,17 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
       setError(e.message);
     }
   }
-  async function addCuota() {
-    setSaving(true);
-    setError(null);
-    try {
-      const row = await api.insertCuota(tarjetaId, {
-        fecha: todayISO(),
-        comercio: "",
-        monto: 0,
-        cuotas: 1,
-      });
-      setCuotas((rows) => [row, ...rows]);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setSaving(false);
-    }
+  // values: solo desde MobileEntryForm (pisa los defaults). Sin args inserta
+  // la fila vacía de siempre. Tira el error: lo maneja runAdd (desktop) o el form.
+  async function addCuota(values) {
+    const row = await api.insertCuota(tarjetaId, {
+      fecha: todayISO(),
+      comercio: "",
+      monto: 0,
+      cuotas: 1,
+      ...values,
+    });
+    setCuotas((rows) => [row, ...rows]);
   }
   async function delCuota(id) {
     try {
@@ -143,21 +177,14 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
       setError(e.message);
     }
   }
-  async function addDolar() {
-    setSaving(true);
-    setError(null);
-    try {
-      const row = await api.insertDolar(tarjetaId, {
-        fecha: todayISO(),
-        comercio: "",
-        monto: 0,
-      });
-      setDolares((rows) => [row, ...rows]);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setSaving(false);
-    }
+  async function addDolar(values) {
+    const row = await api.insertDolar(tarjetaId, {
+      fecha: todayISO(),
+      comercio: "",
+      monto: 0,
+      ...values,
+    });
+    setDolares((rows) => [row, ...rows]);
   }
   async function delDolar(id) {
     try {
@@ -192,16 +219,29 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
       setError(e.message);
     }
   }
-  async function addRecurrente() {
+  async function addRecurrente(values) {
+    const row = await api.insertRecurrente(tarjetaId, {
+      concepto: "",
+      monto: 0,
+      activo: true,
+      ...values,
+    });
+    setRecurrentes((rows) => [...rows, row]);
+  }
+
+  const ADD_FN = { cuotas: addCuota, dolares: addDolar, recurrentes: addRecurrente };
+
+  // "+ agregar": en desktop inserta la fila vacía (con el mismo manejo de
+  // saving/error de siempre); en mobile abre el form de alta.
+  async function handleAddClick(table) {
+    if (isMobile) {
+      setEntryTable(table);
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
-      const row = await api.insertRecurrente(tarjetaId, {
-        concepto: "",
-        monto: 0,
-        activo: true,
-      });
-      setRecurrentes((rows) => [...rows, row]);
+      await ADD_FN[table]();
     } catch (e) {
       setError(e.message);
     } finally {
@@ -330,6 +370,7 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
           </tr>
         }
       >
+        {/* Celdas editables a mano: mantener sincronizadas con ENTRY_FIELDS.cuotas (arriba). */}
         {cuotasEnriched.map((r) => (
           <tr key={r.id}>
             <Cell
@@ -374,7 +415,7 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
           </tr>
         ))}
       </Table>
-      <button className="btn-add" disabled={saving} onClick={addCuota}>
+      <button className="btn-add" disabled={saving} onClick={() => handleAddClick("cuotas")}>
         + compra en cuotas
       </button>
 
@@ -398,6 +439,7 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
           </tr>
         }
       >
+        {/* Celdas editables a mano: mantener sincronizadas con ENTRY_FIELDS.dolares (arriba). */}
         {dolarEnriched.map((r) => (
           <tr key={r.id}>
             <Cell
@@ -431,7 +473,7 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
           </tr>
         ))}
       </Table>
-      <button className="btn-add" disabled={saving} onClick={addDolar}>
+      <button className="btn-add" disabled={saving} onClick={() => handleAddClick("dolares")}>
         + gasto en dólares
       </button>
 
@@ -453,6 +495,7 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
           </tr>
         }
       >
+        {/* Celdas editables a mano: mantener sincronizadas con ENTRY_FIELDS.recurrentes (arriba). */}
         {recurrentes.map((r) => (
           <tr key={r.id}>
             <Cell
@@ -485,7 +528,7 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
           </tr>
         ))}
       </Table>
-      <button className="btn-add" disabled={saving} onClick={addRecurrente}>
+      <button className="btn-add" disabled={saving} onClick={() => handleAddClick("recurrentes")}>
         + agregar suscripción
       </button>
 
@@ -497,6 +540,19 @@ export default function CardPanel({ tarjetaId, name, accent, onRegistered }) {
       >
         Registrar este mes en el total mensual
       </button>
+
+      {entryTable && (
+        <MobileEntryForm
+          title={ENTRY_FIELDS[entryTable].title}
+          accent={accent}
+          fields={ENTRY_FIELDS[entryTable].fields}
+          onSubmit={async (values) => {
+            await ADD_FN[entryTable](values);
+            setEntryTable(null);
+          }}
+          onCancel={() => setEntryTable(null)}
+        />
+      )}
 
       {importOpen && (
         <ImportarResumenModal

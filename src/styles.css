@@ -192,6 +192,45 @@ h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
 }
 .modal-box-wide { max-width: 720px; max-height: 88vh; overflow-y: auto; }
 
+/* MobileEntryForm: alta de filas en mobile como bottom sheet. Misma paleta y
+   radios que .modal-box. top/height los pisa el componente con el
+   visualViewport (teclado de iOS); 100dvh es el fallback. Inputs a 16px: con
+   menos, iOS hace zoom automático al enfocarlos. */
+.sheet-overlay {
+  position: fixed; left: 0; right: 0; top: 0; height: 100dvh; z-index: 100;
+  background: rgba(0, 0, 0, 0.55); display: flex; align-items: flex-end;
+}
+.sheet-box {
+  width: 100%; max-height: calc(100% - 24px); display: flex; flex-direction: column;
+  background: #1D232B; border: 1px solid #2A313B; border-top: 3px solid; border-radius: 12px 12px 0 0;
+  color: #E8E6E1; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+.sheet-title { margin: 0; padding: 16px 16px 8px 16px; font-size: 16px; }
+.sheet-body {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch; padding: 4px 16px 12px 16px;
+}
+.sheet-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; font-size: 12px; color: #8B93A1; }
+.sheet-optional { color: #5F6773; }
+.sheet-input-row { display: flex; gap: 6px; }
+.sheet-input-row input {
+  flex: 1; min-width: 0; height: 42px; background: #12161B; border: 1px solid #2A313B; color: #E8E6E1;
+  padding: 8px 10px; border-radius: 8px; font-size: 16px; font-family: inherit;
+  -webkit-appearance: none; appearance: none;
+}
+.sheet-input-row input:focus { outline: none; border-color: #5B9BE8; }
+.sheet-input-row input[aria-invalid="true"] { border-color: #E85D5D; }
+.sheet-sign {
+  width: 42px; height: 42px; flex: 0 0 auto; background: #12161B; border: 1px solid #2A313B;
+  color: #E8E6E1; border-radius: 8px; font-size: 18px; cursor: pointer; padding: 0;
+}
+.sheet-error { color: #E85D5D; font-size: 11px; }
+.sheet-actions {
+  flex: 0 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom)) 16px; border-top: 1px solid #2A313B;
+}
+.sheet-actions .btn-register { padding: 11px 22px; font-size: 14px; }
+
 /* ImportarResumenModal (importación de resúmenes vía chat de IA externo) */
 .btn-import { background: none; border: 1px dashed #5B9BE8; color: #5B9BE8; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-top: 8px; margin-left: 8px; }
 .btn-import:hover { background: rgba(91, 155, 232, 0.12); }
