@@ -132,7 +132,7 @@ export const AYUDA = [
         id: "privacidad",
         pregunta: "¿Quién puede ver mis datos?",
         respuesta:
-          "Otros usuarios no: cada cuenta ve solo sus propios datos. Los datos se guardan en servidores de Supabase, el servicio que usa la app. Como administrador, Francisco tiene acceso técnico a la base de datos; no los usa ni los comparte con nadie.",
+          "Otros usuarios no: cada cuenta ve solo sus propios datos. Los datos se guardan en servidores de Supabase, el servicio que usa la app. El administrador de la app tiene acceso a los datos guardados, pero no los usa ni los comparte con nadie.",
       },
       {
         id: "instalar",
